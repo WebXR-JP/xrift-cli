@@ -12,7 +12,7 @@ XRift のワールドやアバターをコマンドラインからアップロ�
 ## インストール
 
 ```bash
-npm install -g xrift-cli
+npm install -g @xrift/cli
 ```
 
 ## 使い方

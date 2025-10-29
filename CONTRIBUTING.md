@@ -61,7 +61,7 @@ xrift --help
 テスト後、リンクを解除：
 
 ```bash
-npm unlink -g xrift-cli
+npm unlink -g @xrift/cli
 ```
 
 ## プロジェクト構造
