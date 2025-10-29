@@ -1,0 +1,63 @@
+{
+  "name": "xrift-cli",
+  "version": "0.1.0",
+  "description": "XRift CLI tool for world and avatar uploads",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "xrift": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "watch": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run type-check && npm run build"
+  },
+  "keywords": [
+    "xrift",
+    "webxr",
+    "cli",
+    "world",
+    "upload"
+  ],
+  "author": "WebXR-JP",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WebXR-JP/xrift-cli.git"
+  },
+  "homepage": "https://github.com/WebXR-JP/xrift-cli#readme",
+  "bugs": {
+    "url": "https://github.com/WebXR-JP/xrift-cli/issues"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CONTRIBUTING.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "commander": "^12.1.0",
+    "axios": "^1.7.9",
+    "cli-progress": "^3.12.0",
+    "open": "^10.1.0",
+    "chalk": "^5.3.0",
+    "ora": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/parser": "^8.18.1",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
