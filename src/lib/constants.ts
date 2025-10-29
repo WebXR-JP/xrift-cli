@@ -6,11 +6,14 @@ import os from 'node:os';
  */
 
 // API Base URL
-export const API_BASE_URL = process.env.XRIFT_API_URL || 'https://xrift.com';
+export const API_BASE_URL = process.env.XRIFT_API_URL || 'https://api.xrift.net';
+
+// Frontend URL (for browser authentication)
+export const FRONTEND_URL = process.env.XRIFT_FRONTEND_URL || 'https://app.xrift.net';
 
 // Authentication
 export const AUTH_LOGIN_PATH = '/cli-login';
-export const AUTH_VERIFY_PATH = '/api/auth/verify';
+export const AUTH_VERIFY_PATH = '/api/auth/cli-token-verify';
 export const CALLBACK_PORT = 3000;
 export const CALLBACK_PATH = '/callback';
 

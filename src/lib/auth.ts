@@ -4,7 +4,7 @@ import open from 'open';
 import chalk from 'chalk';
 import ora from 'ora';
 import {
-  API_BASE_URL,
+  FRONTEND_URL,
   AUTH_LOGIN_PATH,
   CALLBACK_PORT,
   CALLBACK_PATH,
@@ -25,7 +25,7 @@ function generateState(): string {
 export async function login(): Promise<void> {
   const state = generateState();
   const callbackUrl = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
-  const loginUrl = `${API_BASE_URL}${AUTH_LOGIN_PATH}?callback=${encodeURIComponent(
+  const loginUrl = `${FRONTEND_URL}${AUTH_LOGIN_PATH}?callback=${encodeURIComponent(
     callbackUrl
   )}&state=${state}`;
 
