@@ -1,6 +1,6 @@
 {
   "name": "@xrift/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "XRift CLI tool for world and avatar uploads",
   "type": "module",
   "main": "dist/index.js",

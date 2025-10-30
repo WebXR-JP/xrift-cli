@@ -10,7 +10,7 @@ import {
   CALLBACK_PATH,
 } from './constants.js';
 import { saveAuthConfig, deleteAuthConfig, getToken } from './config.js';
-import { verifyToken } from './api.js';
+import { verifyToken, exchangeCodeForToken } from './api.js';
 
 /**
  * ランダムなstateパラメータを生成（CSRF対策）
@@ -45,7 +45,7 @@ export async function login(): Promise<void> {
 
       try {
         const url = new URL(req.url, `http://localhost:${CALLBACK_PORT}`);
-        const token = url.searchParams.get('token');
+        const code = url.searchParams.get('code');
         const returnedState = url.searchParams.get('state');
 
         // CSRF対策: stateパラメータを検証
@@ -53,15 +53,12 @@ export async function login(): Promise<void> {
           throw new Error('不正なstateパラメータです');
         }
 
-        if (!token) {
-          throw new Error('トークンが取得できませんでした');
+        if (!code) {
+          throw new Error('認証コードが取得できませんでした');
         }
 
-        // トークンを検証
-        const verification = await verifyToken(token);
-        if (!verification.valid) {
-          throw new Error('無効なトークンです');
-        }
+        // コードをトークンと交換
+        const { token, user } = await exchangeCodeForToken(code);
 
         // トークンを保存
         await saveAuthConfig({ token });
@@ -107,8 +104,8 @@ export async function login(): Promise<void> {
 
         spinner.succeed(chalk.green('✅ ログインに成功しました'));
 
-        if (verification.username) {
-          console.log(chalk.gray(`ログイン中: ${verification.username}`));
+        if (user?.username) {
+          console.log(chalk.gray(`ログイン中: ${user.username}`));
         }
 
         server.close();

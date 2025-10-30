@@ -1,7 +1,15 @@
 import axios, { type AxiosInstance } from 'axios';
-import { API_BASE_URL, AUTH_VERIFY_PATH } from './constants.js';
+import {
+  API_BASE_URL,
+  AUTH_VERIFY_PATH,
+  AUTH_TOKEN_EXCHANGE_PATH,
+} from './constants.js';
 import { getToken } from './config.js';
-import type { VerifyTokenResponse } from '../types/index.js';
+import type {
+  VerifyTokenResponse,
+  ExchangeTokenRequest,
+  ExchangeTokenResponse,
+} from '../types/index.js';
 
 /**
  * API クライアントのインスタンスを作成
@@ -59,4 +67,32 @@ export async function getAuthenticatedClient(): Promise<AxiosInstance> {
   }
 
   return createApiClient(token);
+}
+
+/**
+ * 認証コードをトークンと交換（Authorization Code Flow）
+ */
+export async function exchangeCodeForToken(
+  code: string
+): Promise<ExchangeTokenResponse> {
+  const client = createApiClient();
+
+  try {
+    const request: ExchangeTokenRequest = { code };
+    const response = await client.post<ExchangeTokenResponse>(
+      AUTH_TOKEN_EXCHANGE_PATH,
+      request
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        throw new Error('認証コードが無効または期限切れです');
+      }
+      throw new Error(
+        `トークンの取得に失敗しました: ${error.response?.data?.message || error.message}`
+      );
+    }
+    throw error;
+  }
 }
