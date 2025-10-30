@@ -13,7 +13,7 @@ export const FRONTEND_URL = process.env.XRIFT_FRONTEND_URL || 'https://app.xrift
 
 // Authentication
 export const AUTH_LOGIN_PATH = '/cli-login';
-export const AUTH_VERIFY_PATH = '/api/auth/cli-token-verify';
+export const AUTH_VERIFY_PATH = '/api/auth/verify-cli-token';
 export const AUTH_TOKEN_EXCHANGE_PATH = '/api/auth/cli-token'; // POST: code -> token exchange
 export const CALLBACK_PORT = 3000;
 export const CALLBACK_PATH = '/callback';

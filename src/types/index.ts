@@ -37,9 +37,11 @@ export interface CreateWorldResponse {
 
 export interface VerifyTokenResponse {
   valid: boolean;
-  userId?: string;
-  username?: string;
-  email?: string;
+  user?: {
+    id: string;
+    email: string;
+    displayName: string;
+  };
 }
 
 export interface ExchangeTokenRequest {
@@ -50,7 +52,7 @@ export interface ExchangeTokenResponse {
   token: string;
   user?: {
     id: string;
-    username?: string;
-    email?: string;
+    email: string;
+    displayName: string;
   };
 }

@@ -106,8 +106,8 @@ export async function login(): Promise<void> {
 
         spinner.succeed(chalk.green('✅ ログインに成功しました'));
 
-        if (user?.username) {
-          console.log(chalk.gray(`ログイン中: ${user.username}`));
+        if (user?.displayName) {
+          console.log(chalk.gray(`ログイン中: ${user.displayName}`));
         }
 
         // タイムアウトをクリア
@@ -230,11 +230,14 @@ export async function whoami(): Promise<void> {
 
     spinner.succeed(chalk.green('ログイン中'));
 
-    if (verification.username) {
-      console.log(chalk.blue('ユーザー名:'), verification.username);
+    if (verification.user?.displayName) {
+      console.log(chalk.blue('表示名:'), verification.user.displayName);
     }
-    if (verification.email) {
-      console.log(chalk.blue('メール:'), verification.email);
+    if (verification.user?.email) {
+      console.log(chalk.blue('メール:'), verification.user.email);
+    }
+    if (verification.user?.id) {
+      console.log(chalk.blue('ユーザーID:'), verification.user.id);
     }
   } catch (error) {
     spinner.fail(chalk.red('ユーザー情報の取得に失敗しました'));
