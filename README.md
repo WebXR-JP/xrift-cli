@@ -53,39 +53,46 @@ npm install -g @xrift/cli
 
 #### 対話式モード（推奨）
 
-プロジェクト名を省略すると、対話式で設定を選択できます：
+基本的に対話式で、省略されたオプションのみ質問します：
 
 ```bash
-# 対話式モードで作成
+# 全て対話式で選択
 npx @xrift/cli create
 
-# またはグローバルインストール後
+# プロジェクト名だけ指定、残りは対話式
+npx @xrift/cli create my-world
+
+# 場所も指定、テンプレートとインストールは対話式
+xrift create my-world --here
+
+# グローバルインストール後
 xrift create
 ```
 
 対話式モードでは以下を選択できます：
-- プロジェクト名
-- 作成場所（新しいディレクトリ / カレントディレクトリ）
-- テンプレート（デフォルト / カスタム）
-- 依存関係のインストール有無
+- プロジェクト名（省略時）
+- 作成場所（`--here` がない場合）
+- テンプレート（`--template` がない場合）
+- 依存関係のインストール有無（`--skip-install` がない場合）
 
-#### コマンドライン引数で指定
+#### 完全自動モード
 
-直接コマンドラインで指定することもできます：
+対話を無効にして、全てコマンドラインで指定することもできます：
 
 ```bash
-# 基本的な使い方
-npx @xrift/cli create my-world
+# 対話なし（プロジェクト名は必須）
+npx @xrift/cli create my-world -y
+npx @xrift/cli create my-world --no-interactive
 
-# カスタムテンプレートを使用
-xrift create my-world --template WebXR-JP/custom-template
-
-# 依存関係のインストールをスキップ
-xrift create my-world --skip-install
-
-# カレントディレクトリに作成
-xrift create my-world --here
+# 全てのオプションを指定
+xrift create my-world --here --template WebXR-JP/custom-template --skip-install -y
 ```
+
+**オプション一覧:**
+- `-y, --no-interactive` - 対話式を無効化（CI/スクリプト用）
+- `--here` - カレントディレクトリに作成
+- `-t, --template <repo>` - カスタムテンプレート
+- `--skip-install` - npm install をスキップ
 
 作成されたプロジェクトには以下が含まれます：
 - React Three Fiber + Three.js のセットアップ
