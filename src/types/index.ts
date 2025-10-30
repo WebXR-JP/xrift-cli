@@ -41,3 +41,16 @@ export interface VerifyTokenResponse {
   username?: string;
   email?: string;
 }
+
+export interface ExchangeTokenRequest {
+  code: string;
+}
+
+export interface ExchangeTokenResponse {
+  token: string;
+  user?: {
+    id: string;
+    username?: string;
+    email?: string;
+  };
+}
