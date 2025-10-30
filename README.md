@@ -13,10 +13,13 @@ XRift のワールドやアバターをコマンドラインからアップロ�
 ## クイックスタート
 
 ```bash
-# 新規プロジェクトを作成
+# 対話式モードで新規プロジェクトを作成（推奨）
+npx @xrift/cli create
+
+# または、コマンドラインで指定
 npx @xrift/cli create my-world
 
-# プロジェクトに移動
+# プロジェクトに移動（新しいディレクトリに作成した場合）
 cd my-world
 
 # 開発サーバーを起動
@@ -48,23 +51,48 @@ npm install -g @xrift/cli
 
 テンプレートから新しいワールドプロジェクトを作成します。
 
+#### 対話式モード（推奨）
+
+基本的に対話式で、省略されたオプションのみ質問します：
+
 ```bash
-# npx で実行（推奨）
+# 全て対話式で選択
+npx @xrift/cli create
+
+# プロジェクト名だけ指定、残りは対話式
 npx @xrift/cli create my-world
 
-# またはグローバルインストール後
-xrift create my-world
+# 場所も指定、テンプレートとインストールは対話式
+xrift create my-world --here
+
+# グローバルインストール後
+xrift create
 ```
 
-オプション：
+対話式モードでは以下を選択できます：
+- プロジェクト名（省略時）
+- 作成場所（`--here` がない場合）
+- テンプレート（`--template` がない場合）
+- 依存関係のインストール有無（`--skip-install` がない場合）
+
+#### 完全自動モード
+
+対話を無効にして、全てコマンドラインで指定することもできます：
 
 ```bash
-# カスタムテンプレートを使用
-xrift create my-world --template WebXR-JP/custom-template
+# 対話なし（プロジェクト名は必須）
+npx @xrift/cli create my-world -y
+npx @xrift/cli create my-world --no-interactive
 
-# 依存関係のインストールをスキップ
-xrift create my-world --skip-install
+# 全てのオプションを指定
+xrift create my-world --here --template WebXR-JP/custom-template --skip-install -y
 ```
+
+**オプション一覧:**
+- `-y, --no-interactive` - 対話式を無効化（CI/スクリプト用）
+- `--here` - カレントディレクトリに作成
+- `-t, --template <repo>` - カスタムテンプレート
+- `--skip-install` - npm install をスキップ
 
 作成されたプロジェクトには以下が含まれます：
 - React Three Fiber + Three.js のセットアップ
