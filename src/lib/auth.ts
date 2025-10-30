@@ -36,6 +36,8 @@ export async function login(): Promise<void> {
   const spinner = ora('認証を待機中...').start();
 
   return new Promise((resolve, reject) => {
+    let timeoutId: NodeJS.Timeout;
+
     const server = http.createServer(async (req, res) => {
       if (!req.url?.startsWith(CALLBACK_PATH)) {
         res.writeHead(404);
@@ -108,6 +110,9 @@ export async function login(): Promise<void> {
           console.log(chalk.gray(`ログイン中: ${user.username}`));
         }
 
+        // タイムアウトをクリア
+        clearTimeout(timeoutId);
+
         server.close(() => {
           resolve();
         });
@@ -157,6 +162,9 @@ export async function login(): Promise<void> {
           </html>
         `);
 
+        // タイムアウトをクリア
+        clearTimeout(timeoutId);
+
         server.close(() => {
           reject(error);
         });
@@ -173,7 +181,7 @@ export async function login(): Promise<void> {
     });
 
     // タイムアウト設定（5分）
-    setTimeout(() => {
+    timeoutId = setTimeout(() => {
       spinner.fail(chalk.red('認証がタイムアウトしました'));
       server.close(() => {
         reject(new Error('認証がタイムアウトしました'));
