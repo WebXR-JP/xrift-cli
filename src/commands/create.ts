@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { resolve } from 'path';
 import { access, constants, readdir } from 'fs';
 import chalk from 'chalk';
+import prompts from 'prompts';
 import {
   downloadTemplate,
   customizeProject,
@@ -49,7 +50,7 @@ interface CreateOptions {
 }
 
 export const createCommand = new Command('create')
-  .argument('<project-name>', 'プロジェクト名')
+  .argument('[project-name]', 'プロジェクト名（省略時は対話式）')
   .option(
     '-t, --template <repository>',
     'テンプレートリポジトリ（例: WebXR-JP/xrift-world-template）',
@@ -58,8 +59,80 @@ export const createCommand = new Command('create')
   .option('--skip-install', '依存関係のインストールをスキップ')
   .option('--here', 'カレントディレクトリに直接作成')
   .description('新しいXRiftプロジェクトを作成')
-  .action(async (projectName: string, options: CreateOptions) => {
+  .action(async (projectName: string | undefined, options: CreateOptions) => {
     try {
+      // 対話式モード
+      if (!projectName) {
+        console.log(chalk.cyan('\n✨ 対話式モードでXRiftワールドを作成します\n'));
+
+        const response = await prompts([
+          {
+            type: 'text',
+            name: 'projectName',
+            message: 'プロジェクト名を入力してください',
+            validate: (value) =>
+              /^[a-z0-9-]+$/.test(value)
+                ? true
+                : '小文字の英数字とハイフンのみ使用できます',
+          },
+          {
+            type: 'select',
+            name: 'location',
+            message: 'どこに作成しますか？',
+            choices: [
+              { title: '新しいディレクトリを作成', value: 'new' },
+              { title: 'カレントディレクトリに直接作成', value: 'here' },
+            ],
+            initial: 0,
+          },
+          {
+            type: 'select',
+            name: 'templateType',
+            message: 'テンプレートを選択してください',
+            choices: [
+              { title: 'デフォルト (WebXR-JP/xrift-test-world)', value: 'default' },
+              { title: 'カスタムテンプレート', value: 'custom' },
+            ],
+            initial: 0,
+          },
+          {
+            type: (prev) => (prev === 'custom' ? 'text' : null),
+            name: 'customTemplate',
+            message: 'GitHubリポジトリを入力してください (例: username/repo)',
+            validate: (value) =>
+              value && value.includes('/')
+                ? true
+                : '正しい形式で入力してください (username/repo)',
+          },
+          {
+            type: 'confirm',
+            name: 'install',
+            message: '依存関係をインストールしますか？',
+            initial: true,
+          },
+        ]);
+
+        // ユーザーがキャンセルした場合
+        if (!response.projectName) {
+          console.log(chalk.yellow('\n❌ キャンセルされました'));
+          process.exit(0);
+        }
+
+        // 対話式モードの回答を変数に設定
+        projectName = response.projectName;
+        options.here = response.location === 'here';
+        options.skipInstall = !response.install;
+        if (response.templateType === 'custom') {
+          options.template = response.customTemplate;
+        }
+      }
+
+      // この時点で projectName は必ず定義されている
+      if (!projectName) {
+        console.error(chalk.red('\nエラー: プロジェクト名が指定されていません'));
+        process.exit(1);
+      }
+
       console.log(chalk.cyan(`\n✨ XRiftワールドを作成します...\n`));
 
       // プロジェクト名のバリデーション

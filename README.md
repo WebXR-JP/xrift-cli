@@ -13,10 +13,13 @@ XRift のワールドやアバターをコマンドラインからアップロ�
 ## クイックスタート
 
 ```bash
-# 新規プロジェクトを作成
+# 対話式モードで新規プロジェクトを作成（推奨）
+npx @xrift/cli create
+
+# または、コマンドラインで指定
 npx @xrift/cli create my-world
 
-# プロジェクトに移動
+# プロジェクトに移動（新しいディレクトリに作成した場合）
 cd my-world
 
 # 開発サーバーを起動
@@ -48,22 +51,40 @@ npm install -g @xrift/cli
 
 テンプレートから新しいワールドプロジェクトを作成します。
 
+#### 対話式モード（推奨）
+
+プロジェクト名を省略すると、対話式で設定を選択できます：
+
 ```bash
-# npx で実行（推奨）
-npx @xrift/cli create my-world
+# 対話式モードで作成
+npx @xrift/cli create
 
 # またはグローバルインストール後
-xrift create my-world
+xrift create
 ```
 
-オプション：
+対話式モードでは以下を選択できます：
+- プロジェクト名
+- 作成場所（新しいディレクトリ / カレントディレクトリ）
+- テンプレート（デフォルト / カスタム）
+- 依存関係のインストール有無
+
+#### コマンドライン引数で指定
+
+直接コマンドラインで指定することもできます：
 
 ```bash
+# 基本的な使い方
+npx @xrift/cli create my-world
+
 # カスタムテンプレートを使用
 xrift create my-world --template WebXR-JP/custom-template
 
 # 依存関係のインストールをスキップ
 xrift create my-world --skip-install
+
+# カレントディレクトリに作成
+xrift create my-world --here
 ```
 
 作成されたプロジェクトには以下が含まれます：
