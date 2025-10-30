@@ -29,7 +29,7 @@ export async function downloadTemplate(
   try {
     await gigetDownload(`github:${template}`, {
       dir: destination,
-      force: false,
+      force: true, // 既存ディレクトリへの展開を許可
     });
     spinner.succeed('テンプレートをダウンロードしました');
   } catch (error) {

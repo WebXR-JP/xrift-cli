@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { resolve } from 'path';
-import { access, constants } from 'fs';
+import { access, constants, readdir } from 'fs';
 import chalk from 'chalk';
 import {
   downloadTemplate,
@@ -25,9 +25,27 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+/**
+ * ディレクトリが空かチェック
+ */
+async function isDirectoryEmpty(path: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    readdir(path, (err, files) => {
+      if (err) {
+        reject(err);
+      } else {
+        // .git などの隠しファイルを除外
+        const visibleFiles = files.filter((file) => !file.startsWith('.'));
+        resolve(visibleFiles.length === 0);
+      }
+    });
+  });
+}
+
 interface CreateOptions {
   template?: string;
   skipInstall?: boolean;
+  here?: boolean;
 }
 
 export const createCommand = new Command('create')
@@ -38,6 +56,7 @@ export const createCommand = new Command('create')
     'WebXR-JP/xrift-test-world'
   )
   .option('--skip-install', '依存関係のインストールをスキップ')
+  .option('--here', 'カレントディレクトリに直接作成')
   .description('新しいXRiftプロジェクトを作成')
   .action(async (projectName: string, options: CreateOptions) => {
     try {
@@ -54,15 +73,33 @@ export const createCommand = new Command('create')
       }
 
       // プロジェクトパスの設定
-      const projectPath = resolve(process.cwd(), projectName);
+      let projectPath: string;
 
-      // 既存ディレクトリのチェック
-      const exists = await pathExists(projectPath);
-      if (exists) {
-        console.error(
-          chalk.red(`エラー: ディレクトリ "${projectName}" は既に存在します`)
-        );
-        process.exit(1);
+      if (options.here) {
+        // カレントディレクトリに作成
+        projectPath = process.cwd();
+
+        // カレントディレクトリが空かチェック
+        const isEmpty = await isDirectoryEmpty(projectPath);
+        if (!isEmpty) {
+          console.log(
+            chalk.yellow(
+              '⚠️  カレントディレクトリは空ではありません。既存のファイルは上書きされる可能性があります。'
+            )
+          );
+        }
+      } else {
+        // 新しいディレクトリを作成
+        projectPath = resolve(process.cwd(), projectName);
+
+        // 既存ディレクトリのチェック
+        const exists = await pathExists(projectPath);
+        if (exists) {
+          console.error(
+            chalk.red(`エラー: ディレクトリ "${projectName}" は既に存在します`)
+          );
+          process.exit(1);
+        }
       }
 
       // テンプレートのダウンロード
@@ -79,7 +116,9 @@ export const createCommand = new Command('create')
       // 完了メッセージ
       console.log(chalk.green('\n✅ プロジェクトが作成されました！\n'));
       console.log(chalk.cyan('次のステップ:'));
-      console.log(`  ${chalk.yellow(`cd ${projectName}`)}`);
+      if (!options.here) {
+        console.log(`  ${chalk.yellow(`cd ${projectName}`)}`);
+      }
       if (options.skipInstall) {
         console.log(`  ${chalk.yellow('npm install')}       # 依存関係をインストール`);
       }
