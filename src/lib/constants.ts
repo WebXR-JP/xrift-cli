@@ -26,6 +26,7 @@ export const PROJECT_META_DIR = '.xrift';
 export const WORLD_META_FILE = 'world.json';
 
 // World API endpoints
-export const WORLD_CREATE_PATH = '/api/worlds';
-export const WORLD_UPDATE_PATH = '/api/worlds';
-export const WORLD_UPLOAD_URL_PATH = '/api/worlds';
+export const WORLD_CREATE_PATH = '/api/public/v1/worlds';
+export const WORLD_UPDATE_PATH = '/api/public/v1/worlds';
+export const WORLD_UPLOAD_URL_PATH = '/api/public/v1/worlds';
+export const WORLD_COMPLETE_PATH = '/api/public/v1/worlds'; // :id/complete をつけて使用
