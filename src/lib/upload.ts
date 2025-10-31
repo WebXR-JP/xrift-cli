@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import cliProgress from 'cli-progress';
@@ -12,7 +13,7 @@ import {
   scanDirectory,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
-import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH } from './constants.js';
+import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
 import type { CreateWorldResponse, SignedUrlResponse, UploadFileInfo } from '../types/index.js';
 
 /**
@@ -88,7 +89,15 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       }
     }
 
-    // 7. 署名付きURLを取得
+    // 7. contentHashとfileSizeを計算
+    spinner = ora('ファイルのハッシュを計算中...').start();
+    const contentHash = await calculateContentHash(uploadFiles);
+    const fileSize = calculateTotalSize(uploadFiles);
+    spinner.succeed(
+      chalk.green(`ハッシュ計算完了 (contentHash: ${contentHash}, fileSize: ${fileSize} bytes)`)
+    );
+
+    // 8. 署名付きURLを取得
     spinner = ora('アップロード用URLを取得中...').start();
 
     let signedUrls: SignedUrlResponse[];
@@ -96,6 +105,8 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       const response = await client.post<SignedUrlResponse[]>(
         `${WORLD_UPDATE_PATH}/${worldId}/upload-urls`,
         {
+          contentHash,
+          fileSize,
           files: uploadFiles.map((f) => ({
             path: f.remotePath,
             size: f.size,
@@ -110,7 +121,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       throw error;
     }
 
-    // 8. ファイルをアップロード
+    // 9. ファイルをアップロード
     console.log(chalk.blue('\n📤 ファイルをアップロード中...\n'));
 
     const progressBar = new cliProgress.SingleBar(
@@ -152,7 +163,17 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     progressBar.update(uploadFiles.length, { filename: '完了' });
     progressBar.stop();
 
-    // 9. メタデータを保存
+    // 10. アップロード完了通知
+    spinner = ora('アップロード完了を通知中...').start();
+    try {
+      await client.post(`${WORLD_COMPLETE_PATH}/${worldId}/complete`);
+      spinner.succeed(chalk.green('アップロード完了を通知しました'));
+    } catch (error) {
+      spinner.fail(chalk.red('アップロード完了通知に失敗しました'));
+      throw error;
+    }
+
+    // 11. メタデータを保存
     await saveWorldMetadata(
       {
         id: worldId,
@@ -175,6 +196,33 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     throw error;
   }
+}
+
+/**
+ * 全ファイルを結合してSHA-256ハッシュを計算（先頭12文字）
+ */
+async function calculateContentHash(uploadFiles: UploadFileInfo[]): Promise<string> {
+  const hash = crypto.createHash('sha256');
+
+  // ファイルをパスでソートして順序を確定
+  const sortedFiles = [...uploadFiles].sort((a, b) =>
+    a.remotePath.localeCompare(b.remotePath)
+  );
+
+  for (const fileInfo of sortedFiles) {
+    const fileBuffer = await fs.readFile(fileInfo.localPath);
+    hash.update(fileBuffer);
+  }
+
+  const fullHash = hash.digest('hex');
+  return fullHash.substring(0, 12); // 先頭12文字
+}
+
+/**
+ * 全ファイルのサイズ合計を計算
+ */
+function calculateTotalSize(uploadFiles: UploadFileInfo[]): number {
+  return uploadFiles.reduce((total, file) => total + file.size, 0);
 }
 
 /**
