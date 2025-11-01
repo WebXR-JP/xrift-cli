@@ -9,6 +9,9 @@ XRift のワールドやアバターをコマンドラインからアップロ�
 - ワールドのアップロード（複数ファイル対応）
 - 新規作成と更新の自動判定
 - アップロード進捗の可視化
+- インタラクティブプロンプトでタイトル・説明を入力
+- ビルドコマンド自動実行（アップロード前）
+- サムネイル画像の設定
 
 ## クイックスタート
 
@@ -25,13 +28,10 @@ cd my-world
 # 開発サーバーを起動
 npm run dev
 
-# ビルド
-npm run build
-
 # XRiftにログイン
 npx @xrift/cli login
 
-# ワールドをアップロード
+# ワールドをアップロード（buildCommandが設定されていれば自動でビルドされます）
 npx @xrift/cli upload world
 ```
 
@@ -118,12 +118,21 @@ xrift login
 ```json
 {
   "world": {
-    "distDir": "./dist"
+    "distDir": "./dist",
+    "title": "My Awesome World",
+    "description": "A beautiful VR world",
+    "thumbnailPath": "thumbnail.png",
+    "buildCommand": "npm run build"
   }
 }
 ```
 
-- `distDir`: アップロードするビルド済みファイルが格納されているディレクトリ
+**設定項目:**
+- `distDir` (必須): アップロードするビルド済みファイルが格納されているディレクトリ
+- `title` (任意): ワールドのタイトル（設定されていればプロンプトのデフォルト値になります）
+- `description` (任意): ワールドの説明（設定されていればプロンプトのデフォルト値になります）
+- `thumbnailPath` (任意): `distDir`内のサムネイル画像の相対パス（例: `thumbnail.png`）
+- `buildCommand` (任意): アップロード前に自動実行するビルドコマンド
 
 注：`xrift create` で作成したプロジェクトには自動的に `xrift.json` が含まれています。
 
@@ -132,6 +141,22 @@ xrift login
 ```bash
 xrift upload world
 ```
+
+**アップロードの流れ:**
+
+1. **ビルドコマンドの実行** (設定されている場合)
+   - `xrift.json`の`buildCommand`が自動実行されます
+   - ビルドに失敗した場合、アップロードは中止されます
+
+2. **メタデータの入力** (新規作成時のみ)
+   - タイトル（必須）
+   - 説明（任意）
+   - `xrift.json`に設定があれば、デフォルト値として使用されます
+
+3. **ファイルのアップロード**
+   - `distDir`内の全ファイルがアップロードされます
+   - サムネイル画像（`thumbnailPath`で指定）も含まれます
+   - 進捗バーで状況を確認できます
 
 初回実行時は新規ワールドが作成され、`.xrift/world.json` にワールドIDが保存されます。
 2回目以降は既存のワールドが更新されます。
@@ -172,10 +197,16 @@ xrift upload --help
 ```json
 {
   "world": {
-    "distDir": "./dist"
+    "distDir": "./dist",
+    "title": "My Awesome World",
+    "description": "A beautiful VR world",
+    "thumbnailPath": "thumbnail.png",
+    "buildCommand": "npm run build"
   }
 }
 ```
+
+全てのフィールドは`distDir`以外は任意です。
 
 ### `.xrift/world.json`（ワールドメタデータ）
 
