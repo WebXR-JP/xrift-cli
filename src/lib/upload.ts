@@ -18,6 +18,7 @@ import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './con
 import type {
   CreateWorldResponse,
   CreateWorldRequest,
+  UpdateWorldMetadataRequest,
   SignedUrlResponse,
   UploadFileInfo,
 } from '../types/index.js';
@@ -116,6 +117,24 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     if (existingMetadata) {
       console.log(chalk.gray(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`));
       worldId = existingMetadata.id;
+
+      // 既存ワールドのメタデータを更新
+      if (config.world.title || config.world.description || thumbnailPath) {
+        spinner = ora('ワールド情報を更新中...').start();
+        try {
+          const updateRequest: UpdateWorldMetadataRequest = {
+            name: config.world.title,
+            description: config.world.description,
+            thumbnailPath: thumbnailPath,
+          };
+
+          await client.patch(`${WORLD_UPDATE_PATH}/${worldId}`, updateRequest);
+          spinner.succeed(chalk.green('ワールド情報を更新しました'));
+        } catch (error) {
+          spinner.fail(chalk.yellow('ワールド情報の更新に失敗しました（アップロードは続行します）'));
+          console.error(chalk.gray('エラー詳細:'), error);
+        }
+      }
     } else {
       // メタデータを収集
       const metadata = await collectWorldMetadata(

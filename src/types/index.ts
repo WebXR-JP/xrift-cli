@@ -51,6 +51,7 @@ export interface CreateWorldResponse {
 export interface UpdateWorldMetadataRequest {
   name?: string; // タイトル更新時は name を使用
   description?: string;
+  thumbnailPath?: string;
 }
 
 export interface VerifyTokenResponse {
