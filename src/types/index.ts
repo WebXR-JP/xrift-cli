@@ -8,6 +8,7 @@ export interface XriftConfig {
     title?: string;
     description?: string;
     thumbnailPath?: string;
+    buildCommand?: string; // アップロード前に実行するビルドコマンド
   };
 }
 

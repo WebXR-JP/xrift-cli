@@ -12,7 +12,6 @@ import {
   saveWorldMetadata,
   validateDistDir,
   scanDirectory,
-  findThumbnail,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
 import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
@@ -38,6 +37,22 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     const distDir = path.resolve(cwd, config.world.distDir);
     spinner.succeed(chalk.green(`設定を読み込みました: distDir=${config.world.distDir}`));
 
+    // 1.5. ビルドコマンドを実行
+    if (config.world.buildCommand) {
+      console.log(chalk.blue(`\n🔨 ビルドコマンドを実行: ${config.world.buildCommand}\n`));
+      try {
+        const { execSync } = await import('node:child_process');
+        execSync(config.world.buildCommand, {
+          cwd,
+          stdio: 'inherit',
+        });
+        console.log(chalk.green('\n✓ ビルドが完了しました\n'));
+      } catch (error) {
+        console.error(chalk.red('\n✗ ビルドに失敗しました\n'));
+        throw error;
+      }
+    }
+
     // 2. distディレクトリを検証
     spinner = ora('distディレクトリを検証中...').start();
     await validateDistDir(distDir);
@@ -54,13 +69,26 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     spinner.succeed(chalk.green(`${files.length}個のファイルを検出しました`));
 
-    // 3.5. サムネイルを検出
-    spinner = ora('サムネイルを検索中...').start();
-    const thumbnailPath = await findThumbnail(distDir);
-    if (thumbnailPath) {
-      spinner.succeed(chalk.green(`サムネイルを検出: ${path.basename(thumbnailPath)}`));
-    } else {
-      spinner.info(chalk.gray('サムネイルが見つかりませんでした'));
+    // 3.5. サムネイル設定を確認
+    let thumbnailPath: string | undefined;
+    if (config.world.thumbnailPath) {
+      const configuredPath = path.join(distDir, config.world.thumbnailPath);
+      try {
+        const stat = await fs.stat(configuredPath);
+        if (stat.isFile()) {
+          thumbnailPath = config.world.thumbnailPath;
+          console.log(chalk.green(`✓ サムネイル設定: ${config.world.thumbnailPath}`));
+        } else {
+          throw new Error(`${config.world.thumbnailPath} はファイルではありません`);
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error(
+            `設定されたサムネイルが見つかりません: ${config.world.thumbnailPath}`
+          );
+        }
+        throw error;
+      }
     }
 
     // 4. ファイル情報を準備
@@ -105,7 +133,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         const createRequest: CreateWorldRequest = {
           name: metadata.title, // titleをnameとしてバックエンドに送信
           description: metadata.description,
-          thumbnailPath: thumbnailPath ? path.basename(thumbnailPath) : undefined,
+          thumbnailPath: thumbnailPath, // xrift.jsonで設定された相対パス
         };
 
         const response = await client.post<CreateWorldResponse>(WORLD_CREATE_PATH, createRequest);
@@ -228,7 +256,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     console.log(chalk.green(`\n✅ ワールドアップロード完了: ${uploadFiles.length}ファイル`));
     console.log(chalk.gray(`ワールドID: ${worldId}`));
     if (thumbnailPath) {
-      console.log(chalk.gray(`サムネイル: ${path.basename(thumbnailPath)}`));
+      console.log(chalk.gray(`サムネイル: ${thumbnailPath}`));
     }
   } catch (error) {
     if (spinner) {
