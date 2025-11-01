@@ -5,16 +5,23 @@ import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import cliProgress from 'cli-progress';
 import axios from 'axios';
+import prompts from 'prompts';
 import {
   loadProjectConfig,
   loadWorldMetadata,
   saveWorldMetadata,
   validateDistDir,
   scanDirectory,
+  findThumbnail,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
 import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
-import type { CreateWorldResponse, SignedUrlResponse, UploadFileInfo } from '../types/index.js';
+import type {
+  CreateWorldResponse,
+  CreateWorldRequest,
+  SignedUrlResponse,
+  UploadFileInfo,
+} from '../types/index.js';
 
 /**
  * ワールドをアップロード
@@ -47,6 +54,15 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     spinner.succeed(chalk.green(`${files.length}個のファイルを検出しました`));
 
+    // 3.5. サムネイルを検出
+    spinner = ora('サムネイルを検索中...').start();
+    const thumbnailPath = await findThumbnail(distDir);
+    if (thumbnailPath) {
+      spinner.succeed(chalk.green(`サムネイルを検出: ${path.basename(thumbnailPath)}`));
+    } else {
+      spinner.info(chalk.gray('サムネイルが見つかりませんでした'));
+    }
+
     // 4. ファイル情報を準備
     const uploadFiles: UploadFileInfo[] = await Promise.all(
       files.map(async (filePath) => {
@@ -70,19 +86,34 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     let worldId: string;
 
     if (existingMetadata) {
-      console.log(chalk.gray(`既存のワールドを更新します (ID: ${existingMetadata.id})`));
+      console.log(chalk.gray(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`));
       worldId = existingMetadata.id;
     } else {
+      // メタデータを収集
+      const metadata = await collectWorldMetadata(
+        {
+          title: config.world.title,
+          description: config.world.description,
+        },
+        path.basename(cwd)
+      );
+
       // 新規ワールド作成
       spinner = ora('新規ワールドを作成中...').start();
 
       try {
-        const response = await client.post<CreateWorldResponse>(WORLD_CREATE_PATH, {
-          name: path.basename(cwd),
-        });
+        const createRequest: CreateWorldRequest = {
+          name: metadata.title, // titleをnameとしてバックエンドに送信
+          description: metadata.description,
+          thumbnailPath: thumbnailPath ? path.basename(thumbnailPath) : undefined,
+        };
+
+        const response = await client.post<CreateWorldResponse>(WORLD_CREATE_PATH, createRequest);
 
         worldId = response.data.id;
-        spinner.succeed(chalk.green(`新規ワールドを作成しました (ID: ${worldId})`));
+        spinner.succeed(
+          chalk.green(`新規ワールドを作成しました (ID: ${worldId}, タイトル: ${metadata.title})`)
+        );
       } catch (error) {
         spinner.fail(chalk.red('ワールドの作成に失敗しました'));
         throw error;
@@ -102,22 +133,30 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     let signedUrls: SignedUrlResponse[];
     try {
-      const response = await client.post<SignedUrlResponse[]>(
+      const response = await client.post<{ urls: SignedUrlResponse[] }>(
         `${WORLD_UPDATE_PATH}/${worldId}/upload-urls`,
         {
           contentHash,
           fileSize,
           files: uploadFiles.map((f) => ({
             path: f.remotePath,
-            size: f.size,
+            contentType: getMimeType(f.localPath),
           })),
         }
       );
 
-      signedUrls = response.data;
+      signedUrls = response.data.urls;
       spinner.succeed(chalk.green(`${signedUrls.length}個のアップロードURLを取得しました`));
+
+      // デバッグ: 最初のURLを表示
+      if (signedUrls.length > 0) {
+        console.log(chalk.gray(`デバッグ: 最初のURL構造: ${JSON.stringify(signedUrls[0], null, 2)}`));
+      }
     } catch (error) {
       spinner.fail(chalk.red('アップロードURLの取得に失敗しました'));
+      if (axios.isAxiosError(error) && error.response) {
+        console.error(chalk.red(`バックエンドエラー: ${JSON.stringify(error.response.data)}`));
+      }
       throw error;
     }
 
@@ -145,7 +184,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       try {
         const fileBuffer = await fs.readFile(fileInfo.localPath);
 
-        await axios.put(signedUrl.url, fileBuffer, {
+        await axios.put(signedUrl.uploadUrl, fileBuffer, {
           headers: {
             'Content-Type': getMimeType(fileInfo.localPath),
             'Content-Length': fileInfo.size,
@@ -170,6 +209,9 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       spinner.succeed(chalk.green('アップロード完了を通知しました'));
     } catch (error) {
       spinner.fail(chalk.red('アップロード完了通知に失敗しました'));
+      if (axios.isAxiosError(error) && error.response) {
+        console.error(chalk.red(`バックエンドエラー: ${JSON.stringify(error.response.data)}`));
+      }
       throw error;
     }
 
@@ -185,6 +227,9 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     console.log(chalk.green(`\n✅ ワールドアップロード完了: ${uploadFiles.length}ファイル`));
     console.log(chalk.gray(`ワールドID: ${worldId}`));
+    if (thumbnailPath) {
+      console.log(chalk.gray(`サムネイル: ${path.basename(thumbnailPath)}`));
+    }
   } catch (error) {
     if (spinner) {
       spinner.fail(chalk.red('エラーが発生しました'));
@@ -247,4 +292,42 @@ function getMimeType(filePath: string): string {
   };
 
   return mimeTypes[ext] || 'application/octet-stream';
+}
+
+/**
+ * インタラクティブにワールドのメタデータを収集
+ */
+async function collectWorldMetadata(
+  config: { title?: string; description?: string },
+  defaultName: string
+): Promise<{ title: string; description?: string }> {
+  console.log(chalk.blue('\n📝 ワールドの情報を入力してください\n'));
+
+  const response = await prompts(
+    [
+      {
+        type: 'text',
+        name: 'title',
+        message: 'ワールドのタイトル',
+        initial: config.title || defaultName,
+        validate: (value: string) => (value.trim() ? true : 'タイトルは必須です'),
+      },
+      {
+        type: 'text',
+        name: 'description',
+        message: 'ワールドの説明 (任意)',
+        initial: config.description || '',
+      },
+    ],
+    {
+      onCancel: () => {
+        throw new Error('アップロードがキャンセルされました');
+      },
+    }
+  );
+
+  return {
+    title: response.title.trim(),
+    description: response.description?.trim() || undefined,
+  };
 }

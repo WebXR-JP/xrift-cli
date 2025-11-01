@@ -111,3 +111,30 @@ export async function validateDistDir(distDir: string): Promise<void> {
     throw error;
   }
 }
+
+/**
+ * distディレクトリ内でサムネイルを自動検出
+ */
+export async function findThumbnail(distDir: string): Promise<string | null> {
+  const thumbnailNames = [
+    'thumbnail.png',
+    'thumbnail.jpg',
+    'thumbnail.jpeg',
+    'thumbnail.webp',
+  ];
+
+  for (const name of thumbnailNames) {
+    const thumbnailPath = path.join(distDir, name);
+    try {
+      const stat = await fs.stat(thumbnailPath);
+      if (stat.isFile()) {
+        return thumbnailPath;
+      }
+    } catch {
+      // ファイルが存在しない場合は次を試す
+      continue;
+    }
+  }
+
+  return null;
+}
