@@ -13,14 +13,23 @@ XRift のワールドやアバターをコマンドラインからアップロ�
 - ビルドコマンド自動実行（アップロード前）
 - サムネイル画像の設定
 
+## インストール
+
+```bash
+npm install -g @xrift/cli
+```
+
 ## クイックスタート
 
 ```bash
+# XRiftにログイン
+xrift login
+
 # 対話式モードで新規プロジェクトを作成（推奨）
-npx @xrift/cli create
+xrift create
 
 # または、コマンドラインで指定
-npx @xrift/cli create my-world
+xrift create my-world
 
 # プロジェクトに移動（新しいディレクトリに作成した場合）
 cd my-world
@@ -28,22 +37,9 @@ cd my-world
 # 開発サーバーを起動
 npm run dev
 
-# XRiftにログイン
-npx @xrift/cli login
-
 # ワールドをアップロード（buildCommandが設定されていれば自動でビルドされます）
-npx @xrift/cli upload world
+xrift upload world
 ```
-
-## インストール
-
-グローバルインストール（オプション）：
-
-```bash
-npm install -g @xrift/cli
-```
-
-グローバルインストールしない場合は `npx @xrift/cli` で実行できます。
 
 ## 使い方
 
@@ -57,16 +53,13 @@ npm install -g @xrift/cli
 
 ```bash
 # 全て対話式で選択
-npx @xrift/cli create
+xrift create
 
 # プロジェクト名だけ指定、残りは対話式
-npx @xrift/cli create my-world
+xrift create my-world
 
 # 場所も指定、テンプレートとインストールは対話式
 xrift create my-world --here
-
-# グローバルインストール後
-xrift create
 ```
 
 対話式モードでは以下を選択できます：
@@ -81,8 +74,8 @@ xrift create
 
 ```bash
 # 対話なし（プロジェクト名は必須）
-npx @xrift/cli create my-world -y
-npx @xrift/cli create my-world --no-interactive
+xrift create my-world -y
+xrift create my-world --no-interactive
 
 # 全てのオプションを指定
 xrift create my-world --here --template WebXR-JP/custom-template --skip-install -y
