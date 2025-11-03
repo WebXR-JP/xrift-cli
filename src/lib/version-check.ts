@@ -16,7 +16,14 @@ const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24時間
  */
 async function fetchLatestVersion(): Promise<string | null> {
   try {
-    const response = await fetch('https://registry.npmjs.org/@xrift/cli/latest');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3秒タイムアウト
+
+    const response = await fetch('https://registry.npmjs.org/@xrift/cli/latest', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       return null;
     }
