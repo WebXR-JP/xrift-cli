@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { minimatch } from 'minimatch';
 import { PROJECT_CONFIG_FILE, PROJECT_META_DIR, WORLD_META_FILE } from './constants.js';
 import type { XriftConfig, WorldMetadata } from '../types/index.js';
 
@@ -73,8 +74,13 @@ export async function saveWorldMetadata(
 
 /**
  * ディレクトリ内のファイルを再帰的にスキャン
+ * @param dirPath スキャンするディレクトリのパス
+ * @param ignorePatterns アップロード対象から除外するglobパターン（オプション）
  */
-export async function scanDirectory(dirPath: string): Promise<string[]> {
+export async function scanDirectory(
+  dirPath: string,
+  ignorePatterns: string[] = []
+): Promise<string[]> {
   const files: string[] = [];
 
   async function scan(currentPath: string) {
@@ -82,6 +88,16 @@ export async function scanDirectory(dirPath: string): Promise<string[]> {
 
     for (const entry of entries) {
       const fullPath = path.join(currentPath, entry.name);
+      const relativePath = path.relative(dirPath, fullPath);
+
+      // ignoreパターンに一致するかチェック
+      const shouldIgnore = ignorePatterns.some((pattern) =>
+        minimatch(relativePath, pattern, { dot: true })
+      );
+
+      if (shouldIgnore) {
+        continue;
+      }
 
       if (entry.isDirectory()) {
         await scan(fullPath);
