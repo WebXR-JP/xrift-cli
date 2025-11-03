@@ -9,6 +9,7 @@ export interface XriftConfig {
     description?: string;
     thumbnailPath?: string;
     buildCommand?: string; // アップロード前に実行するビルドコマンド
+    ignore?: string[]; // アップロード対象から除外するファイル/ディレクトリのglobパターン
   };
 }
 

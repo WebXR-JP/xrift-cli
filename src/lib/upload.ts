@@ -60,7 +60,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     // 3. ファイルをスキャン
     spinner = ora('ファイルをスキャン中...').start();
-    const files = await scanDirectory(distDir);
+    const files = await scanDirectory(distDir, config.world.ignore);
 
     if (files.length === 0) {
       spinner.fail(chalk.red('アップロードするファイルが見つかりません'));
