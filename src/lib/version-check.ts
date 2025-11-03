@@ -110,38 +110,36 @@ function displayUpdateNotification(currentVersion: string, latestVersion: string
  * バージョンチェックを実行（非同期、エラーは無視）
  */
 export async function checkForUpdates(currentVersion: string): Promise<void> {
-  // バックグラウンドで実行し、エラーは無視
-  setImmediate(async () => {
-    try {
-      const cache = readCache();
-      const now = Date.now();
+  try {
+    const cache = readCache();
+    const now = Date.now();
 
-      // キャッシュが有効な場合
-      if (cache && now - cache.lastCheck < CHECK_INTERVAL) {
-        if (isNewerVersion(currentVersion, cache.latestVersion)) {
-          displayUpdateNotification(currentVersion, cache.latestVersion);
-        }
-        return;
+    // キャッシュが有効な場合
+    if (cache && now - cache.lastCheck < CHECK_INTERVAL) {
+      if (isNewerVersion(currentVersion, cache.latestVersion)) {
+        displayUpdateNotification(currentVersion, cache.latestVersion);
       }
-
-      // 新しいバージョンを取得
-      const latestVersion = await fetchLatestVersion();
-      if (!latestVersion) {
-        return;
-      }
-
-      // キャッシュを更新
-      writeCache({
-        lastCheck: now,
-        latestVersion,
-      });
-
-      // 新しいバージョンがあれば通知
-      if (isNewerVersion(currentVersion, latestVersion)) {
-        displayUpdateNotification(currentVersion, latestVersion);
-      }
-    } catch {
-      // すべてのエラーを無視（バージョンチェックは必須機能ではない）
+      return;
     }
-  });
+
+    // 新しいバージョンを取得（バックグラウンドで）
+    setImmediate(async () => {
+      try {
+        const latestVersion = await fetchLatestVersion();
+        if (!latestVersion) {
+          return;
+        }
+
+        // キャッシュを更新
+        writeCache({
+          lastCheck: now,
+          latestVersion,
+        });
+      } catch {
+        // エラーは無視
+      }
+    });
+  } catch {
+    // すべてのエラーを無視（バージョンチェックは必須機能ではない）
+  }
 }
