@@ -23,7 +23,8 @@ const program = new Command();
 program
   .name('xrift')
   .description('XRift CLI - Upload worlds and avatars to XRift')
-  .version(packageJson.version, '-v, --version', 'バージョンを表示');
+  .version(packageJson.version, '-v, --version', 'バージョンを表示')
+  .helpOption('-h, --help', 'ヘルプを表示');
 
 // Register commands
 program.addCommand(createCommand);
