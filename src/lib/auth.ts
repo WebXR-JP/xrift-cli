@@ -11,6 +11,7 @@ import {
 } from './constants.js';
 import { saveAuthConfig, deleteAuthConfig, getToken } from './config.js';
 import { verifyToken, exchangeCodeForToken } from './api.js';
+import { logVerbose } from './logger.js';
 
 /**
  * ランダムなstateパラメータを生成（CSRF対策）
@@ -30,10 +31,9 @@ export async function login(): Promise<void> {
   )}&state=${state}`;
 
   console.log(chalk.blue('ブラウザで認証を行います...'));
-  console.log(chalk.gray(`認証URL: ${loginUrl}`));
 
   // Callback serverを起動
-  const spinner = ora('認証を待機中...').start();
+  const spinner = ora({ text: '認証を待機中...', isEnabled: false });
 
   return new Promise((resolve, reject) => {
     let timeoutId: NodeJS.Timeout;
@@ -107,7 +107,7 @@ export async function login(): Promise<void> {
         spinner.succeed(chalk.green('✅ ログインに成功しました'));
 
         if (user?.displayName) {
-          console.log(chalk.gray(`ログイン中: ${user.displayName}`));
+          logVerbose(`ログイン中: ${user.displayName}`);
         }
 
         // タイムアウトをクリア
@@ -219,7 +219,7 @@ export async function whoami(): Promise<void> {
 
   if (!token) {
     console.log(chalk.yellow('ログインしていません'));
-    console.log(chalk.gray('`xrift login` を実行してログインしてください'));
+    logVerbose('`xrift login` を実行してログインしてください');
     return;
   }
 
@@ -230,7 +230,7 @@ export async function whoami(): Promise<void> {
 
     if (!verification.valid) {
       spinner.fail(chalk.red('トークンが無効です'));
-      console.log(chalk.gray('再度ログインしてください: `xrift login`'));
+      logVerbose('再度ログインしてください: `xrift login`');
       return;
     }
 

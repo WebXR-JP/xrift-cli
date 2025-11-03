@@ -10,6 +10,7 @@ import { logoutCommand } from './commands/logout.js';
 import { whoamiCommand } from './commands/whoami.js';
 import { uploadCommand } from './commands/upload.js';
 import { checkForUpdates } from './lib/version-check.js';
+import { setVerbose } from './lib/logger.js';
 
 // package.json からバージョンを読み込む
 const __filename = fileURLToPath(import.meta.url);
@@ -24,7 +25,13 @@ program
   .name('xrift')
   .description('XRift CLI - Upload worlds and avatars to XRift')
   .version(packageJson.version, '-v, --version', 'バージョンを表示')
-  .helpOption('-h, --help', 'ヘルプを表示');
+  .helpOption('-h, --help', 'ヘルプを表示')
+  .option('--verbose', '詳細情報を表示');
+
+// verboseフラグを事前にチェック
+if (process.argv.includes('--verbose')) {
+  setVerbose(true);
+}
 
 // Register commands
 program.addCommand(createCommand);
@@ -39,4 +46,5 @@ checkForUpdates(packageJson.version).catch(() => {
   // エラーは無視
 });
 
+// コマンドライン引数をパース
 program.parse();
