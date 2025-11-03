@@ -15,6 +15,7 @@ import {
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
 import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
+import { logVerbose } from './logger.js';
 import type {
   CreateWorldResponse,
   CreateWorldRequest,
@@ -114,7 +115,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     let worldId: string;
 
     if (existingMetadata) {
-      console.log(chalk.gray(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`));
+      logVerbose(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`);
       worldId = existingMetadata.id;
     } else {
       // メタデータを収集
@@ -178,7 +179,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
       // デバッグ: 最初のURLを表示
       if (signedUrls.length > 0) {
-        console.log(chalk.gray(`デバッグ: 最初のURL構造: ${JSON.stringify(signedUrls[0], null, 2)}`));
+        logVerbose(`デバッグ: 最初のURL構造: ${JSON.stringify(signedUrls[0], null, 2)}`);
       }
     } catch (error) {
       spinner.fail(chalk.red('アップロードURLの取得に失敗しました'));
@@ -254,9 +255,9 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     );
 
     console.log(chalk.green(`\n✅ ワールドアップロード完了: ${uploadFiles.length}ファイル`));
-    console.log(chalk.gray(`ワールドID: ${worldId}`));
+    logVerbose(`ワールドID: ${worldId}`);
     if (thumbnailPath) {
-      console.log(chalk.gray(`サムネイル: ${thumbnailPath}`));
+      logVerbose(`サムネイル: ${thumbnailPath}`);
     }
   } catch (error) {
     if (spinner) {
