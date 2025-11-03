@@ -34,6 +34,6 @@ program.addCommand(whoamiCommand);
 program.addCommand(uploadCommand);
 
 // バージョンチェックを実行（非同期、エラーは無視）
-checkForUpdates(packageJson.version);
+await checkForUpdates(packageJson.version);
 
 program.parse();

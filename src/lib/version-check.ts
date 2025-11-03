@@ -122,23 +122,22 @@ export async function checkForUpdates(currentVersion: string): Promise<void> {
       return;
     }
 
-    // 新しいバージョンを取得（バックグラウンドで）
-    setImmediate(async () => {
-      try {
-        const latestVersion = await fetchLatestVersion();
-        if (!latestVersion) {
-          return;
-        }
+    // 新しいバージョンを取得
+    const latestVersion = await fetchLatestVersion();
+    if (!latestVersion) {
+      return;
+    }
 
-        // キャッシュを更新
-        writeCache({
-          lastCheck: now,
-          latestVersion,
-        });
-      } catch {
-        // エラーは無視
-      }
+    // キャッシュを更新
+    writeCache({
+      lastCheck: now,
+      latestVersion,
     });
+
+    // 新しいバージョンがあれば通知
+    if (isNewerVersion(currentVersion, latestVersion)) {
+      displayUpdateNotification(currentVersion, latestVersion);
+    }
   } catch {
     // すべてのエラーを無視（バージョンチェックは必須機能ではない）
   }
