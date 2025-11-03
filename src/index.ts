@@ -9,6 +9,7 @@ import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { whoamiCommand } from './commands/whoami.js';
 import { uploadCommand } from './commands/upload.js';
+import { checkForUpdates } from './lib/version-check.js';
 
 // package.json からバージョンを読み込む
 const __filename = fileURLToPath(import.meta.url);
@@ -30,5 +31,8 @@ program.addCommand(loginCommand);
 program.addCommand(logoutCommand);
 program.addCommand(whoamiCommand);
 program.addCommand(uploadCommand);
+
+// バージョンチェックを実行（非同期、エラーは無視）
+checkForUpdates(packageJson.version);
 
 program.parse();
