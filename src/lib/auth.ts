@@ -115,6 +115,8 @@ export async function login(): Promise<void> {
 
         server.close(() => {
           resolve();
+          // サーバーを閉じた後、確実にプロセスを終了
+          process.nextTick(() => process.exit(0));
         });
       } catch (error) {
         spinner.fail(chalk.red('❌ ログインに失敗しました'));
@@ -167,6 +169,8 @@ export async function login(): Promise<void> {
 
         server.close(() => {
           reject(error);
+          // サーバーを閉じた後、確実にプロセスを終了
+          process.nextTick(() => process.exit(1));
         });
       }
     });
@@ -185,6 +189,8 @@ export async function login(): Promise<void> {
       spinner.fail(chalk.red('認証がタイムアウトしました'));
       server.close(() => {
         reject(new Error('認証がタイムアウトしました'));
+        // サーバーを閉じた後、確実にプロセスを終了
+        process.nextTick(() => process.exit(1));
       });
     }, 5 * 60 * 1000);
   });
