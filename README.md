@@ -172,12 +172,29 @@ xrift logout
 
 ```bash
 xrift --version
+# または
+xrift -v
+```
+
+新しいバージョンが利用可能な場合、自動的に通知されます。
+
+#### 詳細情報を表示
+
+デバッグ情報や詳細なログを表示したい場合：
+
+```bash
+xrift --verbose whoami
+xrift --verbose upload world
 ```
 
 #### ヘルプ表示
 
 ```bash
 xrift --help
+# または
+xrift -h
+
+# コマンド別のヘルプ
 xrift upload --help
 ```
 
