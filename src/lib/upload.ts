@@ -126,38 +126,6 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       logVerbose(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`);
       worldId = existingMetadata.id;
 
-      // 既存ワールドのメタデータを更新
-      if (config.world.title || config.world.description || thumbnailPath !== undefined) {
-        spinner = ora('ワールド情報を更新中...').start();
-        try {
-          const updateRequest: { name?: string; description?: string; thumbnailPath?: string } = {};
-          if (config.world.title) {
-            updateRequest.name = config.world.title;
-          }
-          if (config.world.description !== undefined) {
-            updateRequest.description = config.world.description;
-          }
-          if (thumbnailPath !== undefined) {
-            updateRequest.thumbnailPath = thumbnailPath;
-          }
-
-          await client.patch(`${WORLD_UPDATE_PATH}/${worldId}`, updateRequest);
-          spinner.succeed(chalk.green('ワールド情報を更新しました'));
-          if (config.world.title) {
-            logVerbose(`タイトル: ${config.world.title}`);
-          }
-          if (config.world.description) {
-            logVerbose(`説明: ${config.world.description}`);
-          }
-          if (thumbnailPath) {
-            logVerbose(`サムネイル: ${thumbnailPath}`);
-          }
-        } catch (error) {
-          spinner.fail(chalk.red('ワールド情報の更新に失敗しました'));
-          throw error;
-        }
-      }
-
       // 更新時は設定ファイルから名前と説明を取得
       worldName = config.world.title || path.basename(cwd);
       worldDescription = config.world.description;
@@ -246,8 +214,12 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
               updateRequest.thumbnailPath = thumbnailPath;
             }
 
+            const updateUrl = `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`;
+            logVerbose(`PATCH ${updateUrl}`);
+            logVerbose(`リクエストボディ: ${JSON.stringify(updateRequest, null, 2)}`);
+
             const updateResponse = await client.patch<UpdateWorldVersionMetadataResponse>(
-              `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`,
+              updateUrl,
               updateRequest
             );
 
@@ -264,6 +236,16 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
             return; // 正常終了
           } catch (updateError) {
             spinner.fail(chalk.red('ワールド情報の更新に失敗しました'));
+            if (axios.isAxiosError(updateError)) {
+              if (updateError.response) {
+                console.error(chalk.red(`ステータスコード: ${updateError.response.status}`));
+                console.error(chalk.red(`エラー詳細: ${JSON.stringify(updateError.response.data, null, 2)}`));
+              } else if (updateError.request) {
+                console.error(chalk.red('リクエストは送信されましたが、レスポンスがありません'));
+              } else {
+                console.error(chalk.red(`エラー: ${updateError.message}`));
+              }
+            }
             throw updateError;
           }
         } else {
