@@ -124,6 +124,38 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       logVerbose(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`);
       worldId = existingMetadata.id;
 
+      // 既存ワールドのメタデータを更新
+      if (config.world.title || config.world.description || thumbnailPath !== undefined) {
+        spinner = ora('ワールド情報を更新中...').start();
+        try {
+          const updateRequest: { name?: string; description?: string; thumbnailPath?: string } = {};
+          if (config.world.title) {
+            updateRequest.name = config.world.title;
+          }
+          if (config.world.description !== undefined) {
+            updateRequest.description = config.world.description;
+          }
+          if (thumbnailPath !== undefined) {
+            updateRequest.thumbnailPath = thumbnailPath;
+          }
+
+          await client.patch(`${WORLD_UPDATE_PATH}/${worldId}`, updateRequest);
+          spinner.succeed(chalk.green('ワールド情報を更新しました'));
+          if (config.world.title) {
+            logVerbose(`タイトル: ${config.world.title}`);
+          }
+          if (config.world.description) {
+            logVerbose(`説明: ${config.world.description}`);
+          }
+          if (thumbnailPath) {
+            logVerbose(`サムネイル: ${thumbnailPath}`);
+          }
+        } catch (error) {
+          spinner.fail(chalk.red('ワールド情報の更新に失敗しました'));
+          throw error;
+        }
+      }
+
       // 更新時は設定ファイルから名前と説明を取得
       worldName = config.world.title || path.basename(cwd);
       worldDescription = config.world.description;
