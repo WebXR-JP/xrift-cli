@@ -204,7 +204,19 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     } catch (error) {
       spinner.fail(chalk.red('アップロードURLの取得に失敗しました'));
       if (axios.isAxiosError(error) && error.response) {
-        console.error(chalk.red(`バックエンドエラー: ${JSON.stringify(error.response.data)}`));
+        const errorData = error.response.data;
+        const errorMessage = typeof errorData === 'object' && errorData.error
+          ? errorData.error
+          : JSON.stringify(errorData);
+
+        // contentHashの重複エラーの場合、ユーザーフレンドリーなメッセージを表示
+        if (errorMessage.includes('Unique constraint failed') && errorMessage.includes('contentHash')) {
+          console.error(chalk.yellow('\n⚠️  同じ内容のバージョンが既に存在します'));
+          console.error(chalk.yellow('ファイルに変更を加えてから再度アップロードしてください'));
+          console.error(chalk.gray(`\n詳細: ${errorMessage}`));
+        } else {
+          console.error(chalk.red(`バックエンドエラー: ${errorMessage}`));
+        }
       }
       throw error;
     }
