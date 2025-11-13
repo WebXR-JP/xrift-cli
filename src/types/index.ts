@@ -65,6 +65,7 @@ export interface UploadUrlsResponse {
   versionId: string;
   contentHash: string;
   versionNumber: number;
+  alreadyExists?: boolean; // 既存バージョンの場合true
 }
 
 export interface CompleteUploadRequest {
@@ -91,6 +92,25 @@ export interface CompleteUploadResponse {
 export interface UpdateWorldMetadataRequest {
   name?: string; // タイトル更新時は name を使用
   description?: string;
+}
+
+export interface UpdateWorldVersionMetadataRequest {
+  name?: string;
+  description?: string | null;
+  thumbnailPath?: string | null;
+}
+
+export interface UpdateWorldVersionMetadataResponse {
+  id: string;
+  worldId: string;
+  name: string;
+  description?: string;
+  thumbnailPath?: string;
+  contentHash: string;
+  fileSize: string;
+  status: string;
+  versionNumber: number;
+  updatedAt: string;
 }
 
 export interface VerifyTokenResponse {

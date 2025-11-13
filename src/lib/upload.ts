@@ -25,6 +25,8 @@ import type {
   UploadUrlsResponse,
   CompleteUploadRequest,
   CompleteUploadResponse,
+  UpdateWorldVersionMetadataRequest,
+  UpdateWorldVersionMetadataResponse,
 } from '../types/index.js';
 
 /**
@@ -222,6 +224,55 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       signedUrls = response.data.uploadUrls;
       versionId = response.data.versionId;
       versionNumber = response.data.versionNumber;
+      const alreadyExists = response.data.alreadyExists || false;
+
+      if (alreadyExists) {
+        // 既存バージョンの場合：メタデータのみ更新
+        spinner.succeed(chalk.yellow(`同じ内容のバージョンが既に存在します (v${versionNumber})`));
+        console.log(chalk.yellow('📦 ファイルアップロードをスキップしました'));
+
+        // WorldVersionのメタデータを更新
+        if (config.world.title || config.world.description || thumbnailPath !== undefined) {
+          spinner = ora('ワールド情報を更新中...').start();
+          try {
+            const updateRequest: UpdateWorldVersionMetadataRequest = {};
+            if (config.world.title) {
+              updateRequest.name = config.world.title;
+            }
+            if (config.world.description !== undefined) {
+              updateRequest.description = config.world.description;
+            }
+            if (thumbnailPath !== undefined) {
+              updateRequest.thumbnailPath = thumbnailPath;
+            }
+
+            const updateResponse = await client.patch<UpdateWorldVersionMetadataResponse>(
+              `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`,
+              updateRequest
+            );
+
+            spinner.succeed(chalk.green('✓ ワールド情報を更新しました'));
+            console.log(chalk.gray(`  タイトル: ${updateResponse.data.name}`));
+            if (updateResponse.data.description) {
+              console.log(chalk.gray(`  説明: ${updateResponse.data.description}`));
+            }
+            if (updateResponse.data.thumbnailPath) {
+              console.log(chalk.gray(`  サムネイル: ${updateResponse.data.thumbnailPath}`));
+            }
+
+            console.log(chalk.green('\n✅ 処理が完了しました'));
+            return; // 正常終了
+          } catch (updateError) {
+            spinner.fail(chalk.red('ワールド情報の更新に失敗しました'));
+            throw updateError;
+          }
+        } else {
+          console.log(chalk.yellow('更新する情報がありません'));
+          return; // 何もせず終了
+        }
+      }
+
+      // 新規バージョンの場合：通常のアップロードフロー
       spinner.succeed(
         chalk.green(
           `${signedUrls.length}個のアップロードURLを取得しました (バージョン: ${versionNumber})`
@@ -240,15 +291,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         const errorMessage = typeof errorData === 'object' && errorData.error
           ? errorData.error
           : JSON.stringify(errorData);
-
-        // contentHashの重複エラーの場合、ユーザーフレンドリーなメッセージを表示
-        if (errorMessage.includes('Unique constraint failed') && errorMessage.includes('contentHash')) {
-          console.error(chalk.yellow('\n⚠️  同じ内容のバージョンが既に存在します'));
-          console.error(chalk.yellow('ファイルに変更を加えてから再度アップロードしてください'));
-          console.error(chalk.gray(`\n詳細: ${errorMessage}`));
-        } else {
-          console.error(chalk.red(`バックエンドエラー: ${errorMessage}`));
-        }
+        console.error(chalk.red(`バックエンドエラー: ${errorMessage}`));
       }
       throw error;
     }
