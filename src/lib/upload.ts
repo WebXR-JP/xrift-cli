@@ -21,6 +21,10 @@ import type {
   CreateWorldRequest,
   SignedUrlResponse,
   UploadFileInfo,
+  UploadUrlsRequest,
+  UploadUrlsResponse,
+  CompleteUploadRequest,
+  CompleteUploadResponse,
 } from '../types/index.js';
 
 /**
@@ -113,12 +117,33 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     // 6. ワールドメタデータを確認（新規/更新判定）
     const existingMetadata = await loadWorldMetadata(cwd);
     let worldId: string;
+    let worldName: string;
+    let worldDescription: string | undefined;
 
     if (existingMetadata) {
       logVerbose(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`);
       worldId = existingMetadata.id;
+
+      // 更新時は設定ファイルから名前と説明を取得
+      worldName = config.world.title || path.basename(cwd);
+      worldDescription = config.world.description;
     } else {
-      // メタデータを収集
+      // 新規ワールド作成（Phase 3-2: 空のリクエストボディ）
+      spinner = ora('新規ワールドを作成中...').start();
+
+      try {
+        const createRequest: CreateWorldRequest = {};
+
+        const response = await client.post<CreateWorldResponse>(WORLD_CREATE_PATH, createRequest);
+
+        worldId = response.data.id;
+        spinner.succeed(chalk.green(`新規ワールドを作成しました (ID: ${worldId})`));
+      } catch (error) {
+        spinner.fail(chalk.red('ワールドの作成に失敗しました'));
+        throw error;
+      }
+
+      // 新規作成時はメタデータを収集
       const metadata = await collectWorldMetadata(
         {
           title: config.world.title,
@@ -126,27 +151,8 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         },
         path.basename(cwd)
       );
-
-      // 新規ワールド作成
-      spinner = ora('新規ワールドを作成中...').start();
-
-      try {
-        const createRequest: CreateWorldRequest = {
-          name: metadata.title, // titleをnameとしてバックエンドに送信
-          description: metadata.description,
-          thumbnailPath: thumbnailPath, // xrift.jsonで設定された相対パス
-        };
-
-        const response = await client.post<CreateWorldResponse>(WORLD_CREATE_PATH, createRequest);
-
-        worldId = response.data.id;
-        spinner.succeed(
-          chalk.green(`新規ワールドを作成しました (ID: ${worldId}, タイトル: ${metadata.title})`)
-        );
-      } catch (error) {
-        spinner.fail(chalk.red('ワールドの作成に失敗しました'));
-        throw error;
-      }
+      worldName = metadata.title;
+      worldDescription = metadata.description;
     }
 
     // 7. contentHashとfileSizeを計算
@@ -161,26 +167,40 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     spinner = ora('アップロード用URLを取得中...').start();
 
     let signedUrls: SignedUrlResponse[];
+    let versionId: string;
+    let versionNumber: number;
     try {
-      const response = await client.post<{ urls: SignedUrlResponse[] }>(
+      const uploadUrlsRequest: UploadUrlsRequest = {
+        name: worldName,
+        description: worldDescription,
+        thumbnailPath: thumbnailPath,
+        contentHash,
+        fileSize,
+        files: uploadFiles.map((f) => ({
+          path: f.remotePath,
+          contentType: getMimeType(f.localPath),
+        })),
+      };
+
+      const response = await client.post<UploadUrlsResponse>(
         `${WORLD_UPDATE_PATH}/${worldId}/upload-urls`,
-        {
-          contentHash,
-          fileSize,
-          files: uploadFiles.map((f) => ({
-            path: f.remotePath,
-            contentType: getMimeType(f.localPath),
-          })),
-        }
+        uploadUrlsRequest
       );
 
-      signedUrls = response.data.urls;
-      spinner.succeed(chalk.green(`${signedUrls.length}個のアップロードURLを取得しました`));
+      signedUrls = response.data.uploadUrls;
+      versionId = response.data.versionId;
+      versionNumber = response.data.versionNumber;
+      spinner.succeed(
+        chalk.green(
+          `${signedUrls.length}個のアップロードURLを取得しました (バージョン: ${versionNumber})`
+        )
+      );
 
       // デバッグ: 最初のURLを表示
       if (signedUrls.length > 0) {
         logVerbose(`デバッグ: 最初のURL構造: ${JSON.stringify(signedUrls[0], null, 2)}`);
       }
+      logVerbose(`バージョンID: ${versionId}`);
     } catch (error) {
       spinner.fail(chalk.red('アップロードURLの取得に失敗しました'));
       if (axios.isAxiosError(error) && error.response) {
@@ -234,8 +254,22 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     // 10. アップロード完了通知
     spinner = ora('アップロード完了を通知中...').start();
     try {
-      await client.post(`${WORLD_COMPLETE_PATH}/${worldId}/complete`);
-      spinner.succeed(chalk.green('アップロード完了を通知しました'));
+      const completeRequest: CompleteUploadRequest = {
+        versionId,
+      };
+
+      const completeResponse = await client.post<CompleteUploadResponse>(
+        `${WORLD_COMPLETE_PATH}/${worldId}/complete`,
+        completeRequest
+      );
+
+      spinner.succeed(
+        chalk.green(
+          `アップロード完了を通知しました (バージョン: ${completeResponse.data.versionNumber})`
+        )
+      );
+      logVerbose(`ステータス: ${completeResponse.data.status}`);
+      logVerbose(`ワールド名: ${completeResponse.data.name}`);
     } catch (error) {
       spinner.fail(chalk.red('アップロード完了通知に失敗しました'));
       if (axios.isAxiosError(error) && error.response) {

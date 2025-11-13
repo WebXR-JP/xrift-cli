@@ -38,15 +38,54 @@ export interface SignedUrlResponse {
 }
 
 export interface CreateWorldRequest {
-  name: string; // ユーザーが入力した "タイトル" を name として送信
-  description?: string;
-  thumbnailPath?: string; // dist内の相対パス (例: "thumbnail.png")
+  // Phase 3-2: 空のリクエストボディ
 }
 
 export interface CreateWorldResponse {
   id: string;
-  name?: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UploadUrlsRequest {
+  name: string; // ワールド名（必須）
+  description?: string; // 説明（任意）
+  thumbnailPath?: string; // サムネイルパス（任意）
+  contentHash: string;
+  fileSize: number;
+  files: Array<{
+    path: string;
+    contentType: string;
+  }>;
+}
+
+export interface UploadUrlsResponse {
+  uploadUrls: SignedUrlResponse[];
+  versionId: string;
+  contentHash: string;
+  versionNumber: number;
+}
+
+export interface CompleteUploadRequest {
+  versionId: string;
+}
+
+export interface CompleteUploadResponse {
+  versionId: string;
+  worldId: string;
+  name: string;
   description?: string;
+  contentHash: string;
+  fileSize: number;
+  status: string;
+  versionNumber: number;
+  owner: {
+    id: string;
+    displayName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UpdateWorldMetadataRequest {
