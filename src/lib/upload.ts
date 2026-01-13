@@ -176,6 +176,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         name: worldName,
         description: worldDescription,
         thumbnailPath: thumbnailPath,
+        physics: config.world.physics,
         contentHash,
         fileSize,
         files: uploadFiles.map((f) => ({
@@ -200,7 +201,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         console.log(chalk.yellow('📦 ファイルアップロードをスキップしました'));
 
         // WorldVersionのメタデータを更新
-        if (config.world.title || config.world.description || thumbnailPath !== undefined) {
+        if (config.world.title || config.world.description || thumbnailPath !== undefined || config.world.physics) {
           spinner = ora('ワールド情報を更新中...').start();
           try {
             const updateRequest: UpdateWorldVersionMetadataRequest = {};
@@ -212,6 +213,9 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
             }
             if (thumbnailPath !== undefined) {
               updateRequest.thumbnailPath = thumbnailPath;
+            }
+            if (config.world.physics) {
+              updateRequest.physics = config.world.physics;
             }
 
             const updateUrl = `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`;

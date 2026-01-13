@@ -63,6 +63,49 @@ describe('project-config', () => {
         'world.distDir が設定されていません'
       );
     });
+
+    it('physics設定を含む設定ファイルを読み込める', async () => {
+      const config: XriftConfig = {
+        world: {
+          distDir: './dist',
+          title: 'Test World',
+          physics: {
+            gravity: -9.81,
+            allowInfiniteJump: true,
+          },
+        },
+      };
+
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(config, null, 2)
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+      expect(loaded).toEqual(config);
+      expect(loaded.world.physics?.gravity).toBe(-9.81);
+      expect(loaded.world.physics?.allowInfiniteJump).toBe(true);
+    });
+
+    it('physics設定が部分的に指定されている場合も読み込める', async () => {
+      const config: XriftConfig = {
+        world: {
+          distDir: './dist',
+          physics: {
+            gravity: -20,
+          },
+        },
+      };
+
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(config, null, 2)
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+      expect(loaded.world.physics?.gravity).toBe(-20);
+      expect(loaded.world.physics?.allowInfiniteJump).toBeUndefined();
+    });
   });
 
   describe('loadWorldMetadata と saveWorldMetadata', () => {

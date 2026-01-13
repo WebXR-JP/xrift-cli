@@ -2,6 +2,11 @@
  * XRift CLI Type Definitions
  */
 
+export interface PhysicsConfig {
+  gravity?: number;
+  allowInfiniteJump?: boolean;
+}
+
 export interface XriftConfig {
   world: {
     distDir: string;
@@ -10,6 +15,7 @@ export interface XriftConfig {
     thumbnailPath?: string;
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するファイル/ディレクトリのglobパターン
+    physics?: PhysicsConfig; // 物理設定
   };
 }
 
@@ -52,6 +58,7 @@ export interface UploadUrlsRequest {
   name: string; // ワールド名（必須）
   description?: string; // 説明（任意）
   thumbnailPath?: string; // サムネイルパス（任意）
+  physics?: PhysicsConfig; // 物理設定（任意）
   contentHash: string;
   fileSize: number;
   files: Array<{
@@ -98,6 +105,7 @@ export interface UpdateWorldVersionMetadataRequest {
   name?: string;
   description?: string | null;
   thumbnailPath?: string | null;
+  physics?: PhysicsConfig | null; // 物理設定更新（nullで削除）
 }
 
 export interface UpdateWorldVersionMetadataResponse {
