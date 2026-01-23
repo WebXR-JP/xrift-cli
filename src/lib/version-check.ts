@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import chalk from 'chalk';
+import { str } from './i18n.js';
 
 interface VersionCache {
   lastCheck: number;
@@ -94,17 +95,17 @@ function displayUpdateNotification(currentVersion: string, latestVersion: string
   console.log();
   console.log(chalk.yellow('━'.repeat(60)));
   console.log(
-    chalk.yellow('  新しいバージョンの XRift CLI が利用可能です!')
+    chalk.yellow(`  ${str('新しいバージョンの XRift CLI が利用可能です!')}`)
   );
   console.log(
-    chalk.gray(`  現在のバージョン: ${currentVersion}`)
+    chalk.gray(`  ${str('現在のバージョン: ')}${currentVersion}`)
   );
   console.log(
-    chalk.green(`  最新のバージョン: ${latestVersion}`)
+    chalk.green(`  ${str('最新のバージョン: ')}${latestVersion}`)
   );
   console.log();
   console.log(
-    chalk.cyan('  更新するには以下のコマンドを実行してください:')
+    chalk.cyan(`  ${str('更新するには以下のコマンドを実行してください:')}`)
   );
   console.log(
     chalk.white('  npm install -g @xrift/cli@latest')

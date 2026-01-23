@@ -1,8 +1,9 @@
 import { Command } from 'commander';
 import { login } from '../lib/auth.js';
+import { str } from '../lib/i18n.js';
 
 export const loginCommand = new Command('login')
-  .description('ブラウザ認証でログイン')
+  .description(str('ブラウザ認証でログイン'))
   .action(async () => {
     try {
       await login();

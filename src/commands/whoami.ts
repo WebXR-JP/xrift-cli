@@ -1,8 +1,9 @@
 import { Command } from 'commander';
 import { whoami } from '../lib/auth.js';
+import { str } from '../lib/i18n.js';
 
 export const whoamiCommand = new Command('whoami')
-  .description('現在ログインしているユーザーを表示')
+  .description(str('現在ログインしているユーザーを表示'))
   .action(async () => {
     try {
       await whoami();

@@ -8,6 +8,7 @@ import {
   customizeProject,
   installDependencies,
 } from '../lib/template.js';
+import { str } from '../lib/i18n.js';
 
 /**
  * ファイルまたはディレクトリが存在するかチェック
@@ -52,16 +53,16 @@ interface CreateOptions {
 }
 
 export const createCommand = new Command('create')
-  .argument('[project-name]', 'プロジェクト名（省略時は対話式）')
+  .argument('[project-name]', str('プロジェクト名（省略時は対話式）'))
   .option(
     '-t, --template <repository>',
-    'テンプレートリポジトリ（例: WebXR-JP/xrift-world-template）',
+    str('テンプレートリポジトリ（例: WebXR-JP/xrift-world-template）'),
     'WebXR-JP/xrift-test-world'
   )
-  .option('--skip-install', '依存関係のインストールをスキップ')
-  .option('--here', 'カレントディレクトリに直接作成')
-  .option('-y, --no-interactive', '対話式モードを無効化')
-  .description('新しいXRiftプロジェクトを作成')
+  .option('--skip-install', str('依存関係のインストールをスキップ'))
+  .option('--here', str('カレントディレクトリに直接作成'))
+  .option('-y, --no-interactive', str('対話式モードを無効化'))
+  .description(str('新しいXRiftプロジェクトを作成'))
   .action(async (projectName: string | undefined, options: CreateOptions) => {
     try {
       // --no-interactive の場合、プロジェクト名が必須

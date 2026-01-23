@@ -11,6 +11,7 @@ import { whoamiCommand } from './commands/whoami.js';
 import { uploadCommand } from './commands/upload.js';
 import { checkForUpdates } from './lib/version-check.js';
 import { setVerbose } from './lib/logger.js';
+import { str } from './lib/i18n.js';
 
 // package.json からバージョンを読み込む
 const __filename = fileURLToPath(import.meta.url);
@@ -24,9 +25,9 @@ const program = new Command();
 program
   .name('xrift')
   .description('XRift CLI - Upload worlds and avatars to XRift')
-  .version(packageJson.version, '-v, --version', 'バージョンを表示')
-  .helpOption('-h, --help', 'ヘルプを表示')
-  .option('--verbose', '詳細情報を表示');
+  .version(packageJson.version, '-v, --version', str('バージョンを表示'))
+  .helpOption('-h, --help', str('ヘルプを表示'))
+  .option('--verbose', str('詳細情報を表示'));
 
 // verboseフラグを事前にチェック
 if (process.argv.includes('--verbose')) {
