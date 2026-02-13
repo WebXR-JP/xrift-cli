@@ -119,6 +119,7 @@ export async function installDependencies(projectPath: string): Promise<void> {
     const npm = spawn('npm', ['install'], {
       cwd: projectPath,
       stdio: 'pipe',
+      shell: true,
     });
 
     npm.on('close', (code) => {
