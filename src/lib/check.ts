@@ -5,7 +5,6 @@ import ora from 'ora';
 import {
   CodeSecurityService,
   determineFileContext,
-  getSecurityVerdict,
 } from '@xrift/code-security';
 import type { ValidateCodeResponse, Violation } from '@xrift/code-security';
 import {
@@ -145,7 +144,9 @@ export async function runSecurityCheck(
       fileContext,
     });
 
-    const verdict = getSecurityVerdict(response.securityScore);
+    // fileContext による severity 調整後の violations ベースで判定
+    // securityScore は生シグナルから計算されるため fileContext を反映しない
+    const verdict = determineVerdict(response);
 
     results.push({
       file: relativePath,
@@ -210,4 +211,18 @@ function printResults(checkResult: SecurityCheckResult): void {
   } else {
     console.log(chalk.green('\n✅ セキュリティチェックに合格しました'));
   }
+}
+
+/**
+ * fileContext 調整済みの violations ベースで verdict を判定
+ * critical violations があれば REJECT、warnings のみなら REVIEW、なければ APPROVE
+ */
+function determineVerdict(response: ValidateCodeResponse): 'APPROVE' | 'REVIEW' | 'REJECT' {
+  if (response.violations.critical.length > 0) {
+    return 'REJECT';
+  }
+  if (response.violations.warnings.length > 0) {
+    return 'REVIEW';
+  }
+  return 'APPROVE';
 }
