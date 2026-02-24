@@ -8,6 +8,11 @@ import {
   customizeProject,
   installDependencies,
 } from '../lib/template.js';
+import {
+  isValidProjectName,
+  needsInteraction,
+  type CreateOptions,
+} from '../lib/create-helpers.js';
 
 /**
  * ファイルまたはディレクトリが存在するかチェック
@@ -43,14 +48,6 @@ async function isDirectoryEmpty(path: string): Promise<boolean> {
   });
 }
 
-interface CreateOptions {
-  template?: string;
-  skipInstall?: boolean;
-  here?: boolean;
-  interactive?: boolean;
-  y?: boolean;
-}
-
 export const createCommand = new Command('create')
   .argument('[project-name]', 'プロジェクト名（省略時は対話式）')
   .option(
@@ -75,13 +72,9 @@ export const createCommand = new Command('create')
       }
 
       // 対話式モードが必要か判定
-      const needsInteraction =
-        options.interactive !== false &&
-        (!projectName ||
-          options.here === undefined ||
-          options.skipInstall === undefined);
+      const shouldShowPrompts = needsInteraction(projectName, options);
 
-      if (needsInteraction) {
+      if (shouldShowPrompts) {
         console.log(chalk.cyan('\n✨ XRiftワールドを作成します\n'));
 
         const questions = [];
@@ -93,7 +86,7 @@ export const createCommand = new Command('create')
             name: 'projectName',
             message: 'プロジェクト名を入力してください',
             validate: (value: string) =>
-              /^[a-z0-9-]+$/.test(value)
+              isValidProjectName(value)
                 ? true
                 : '小文字の英数字とハイフンのみ使用できます',
           });
@@ -178,7 +171,7 @@ export const createCommand = new Command('create')
       console.log(chalk.cyan(`\n✨ XRiftワールドを作成します...\n`));
 
       // プロジェクト名のバリデーション
-      if (!/^[a-z0-9-]+$/.test(projectName)) {
+      if (!isValidProjectName(projectName)) {
         console.error(
           chalk.red(
             'エラー: プロジェクト名は小文字の英数字とハイフンのみ使用できます'
