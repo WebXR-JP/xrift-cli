@@ -167,28 +167,28 @@ export async function runSecurityCheck(
  * 結果をコンソールに表示
  */
 function printResults(checkResult: SecurityCheckResult): void {
-  console.log('');
+  // REVIEW / REJECT のファイルのみ詳細表示
+  const issueResults = checkResult.results.filter((r) => r.verdict !== 'APPROVE');
 
-  for (const result of checkResult.results) {
-    const verdictColor =
-      result.verdict === 'APPROVE'
-        ? chalk.green
-        : result.verdict === 'REVIEW'
-          ? chalk.yellow
-          : chalk.red;
-
-    console.log(chalk.gray(`━━━ ${result.file} ${'━'.repeat(Math.max(0, 40 - result.file.length))}`));
-    console.log(`  スコア: ${result.score}  判定: ${verdictColor(result.verdict)}`);
-
-    for (const v of result.violations.critical) {
-      const loc = v.location ? ` (line ${v.location.line})` : '';
-      console.log(chalk.red(`  ✗ ${v.message}${loc}`));
-    }
-    for (const v of result.violations.warnings) {
-      const loc = v.location ? ` (line ${v.location.line})` : '';
-      console.log(chalk.yellow(`  ⚠ ${v.message}${loc}`));
-    }
+  if (issueResults.length > 0) {
     console.log('');
+
+    for (const result of issueResults) {
+      const verdictColor = result.verdict === 'REVIEW' ? chalk.yellow : chalk.red;
+
+      console.log(chalk.gray(`━━━ ${result.file} ${'━'.repeat(Math.max(0, 40 - result.file.length))}`));
+      console.log(`  スコア: ${result.score}  判定: ${verdictColor(result.verdict)}`);
+
+      for (const v of result.violations.critical) {
+        const loc = v.location ? ` (line ${v.location.line})` : '';
+        console.log(chalk.red(`  ✗ ${v.message}${loc}`));
+      }
+      for (const v of result.violations.warnings) {
+        const loc = v.location ? ` (line ${v.location.line})` : '';
+        console.log(chalk.yellow(`  ⚠ ${v.message}${loc}`));
+      }
+      console.log('');
+    }
   }
 
   // サマリー
