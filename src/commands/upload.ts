@@ -7,9 +7,10 @@ export const uploadCommand = new Command('upload')
 uploadCommand
   .command('world')
   .description('ワールドをアップロード')
-  .action(async () => {
+  .option('--skip-check', 'セキュリティチェックをスキップ')
+  .action(async (options) => {
     try {
-      await uploadWorld();
+      await uploadWorld({ skipCheck: options.skipCheck }, process.cwd());
     } catch (error) {
       if (error instanceof Error) {
         console.error('エラー:', error.message);

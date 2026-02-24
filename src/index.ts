@@ -9,6 +9,7 @@ import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { whoamiCommand } from './commands/whoami.js';
 import { uploadCommand } from './commands/upload.js';
+import { checkCommand } from './commands/check.js';
 import { checkForUpdates } from './lib/version-check.js';
 import { setVerbose } from './lib/logger.js';
 
@@ -39,6 +40,7 @@ program.addCommand(loginCommand);
 program.addCommand(logoutCommand);
 program.addCommand(whoamiCommand);
 program.addCommand(uploadCommand);
+program.addCommand(checkCommand);
 
 // バージョンチェックを実行（非同期、エラーは無視）
 // キャッシュがある場合は即座に通知、ない場合はバックグラウンドで取得
