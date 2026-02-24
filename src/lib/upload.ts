@@ -16,7 +16,6 @@ import {
 import { getAuthenticatedClient } from './api.js';
 import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
-import { runSecurityCheck } from './check.js';
 import type {
   CreateWorldResponse,
   CreateWorldRequest,
@@ -30,14 +29,10 @@ import type {
   UpdateWorldVersionMetadataResponse,
 } from '../types/index.js';
 
-export interface UploadWorldOptions {
-  skipCheck?: boolean;
-}
-
 /**
  * ワールドをアップロード
  */
-export async function uploadWorld(options?: UploadWorldOptions, cwd: string = process.cwd()): Promise<void> {
+export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
   console.log(chalk.blue('🌍 ワールドアップロードを開始します\n'));
 
   let spinner: Ora | undefined;
@@ -81,37 +76,7 @@ export async function uploadWorld(options?: UploadWorldOptions, cwd: string = pr
 
     spinner.succeed(chalk.green(`${files.length}個のファイルを検出しました`));
 
-    // 3.5. セキュリティチェック
-    if (!options?.skipCheck) {
-      const jsFiles = files.filter((f) => /\.(js|mjs)$/.test(f));
-      if (jsFiles.length > 0) {
-        spinner = ora('セキュリティチェック中...').start();
-        const checkResult = await runSecurityCheck(jsFiles, distDir);
-
-        if (checkResult.hasReject) {
-          spinner.fail(chalk.red('セキュリティチェックに失敗しました'));
-          for (const r of checkResult.results.filter((r) => r.verdict === 'REJECT')) {
-            console.error(chalk.red(`  ✗ ${r.file} (スコア: ${r.score})`));
-            for (const v of r.violations.critical) {
-              const loc = v.location ? ` (line ${v.location.line})` : '';
-              console.error(chalk.red(`    - ${v.message}${loc}`));
-            }
-          }
-          console.error(chalk.red('\nアップロードを中止しました。--skip-check でスキップできます。'));
-          throw new Error('セキュリティチェックに失敗しました');
-        }
-
-        if (checkResult.hasReview) {
-          spinner.warn(chalk.yellow('レビューが必要な項目がありますが続行します'));
-        } else {
-          spinner.succeed(chalk.green('セキュリティチェックに合格しました'));
-        }
-      }
-    } else {
-      console.log(chalk.yellow('⚠ セキュリティチェックをスキップしました'));
-    }
-
-    // 3.6. サムネイル設定を確認
+    // 3.5. サムネイル設定を確認
     let thumbnailPath: string | undefined;
     if (config.world.thumbnailPath) {
       const configuredPath = path.join(distDir, config.world.thumbnailPath);
