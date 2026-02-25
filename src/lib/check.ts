@@ -44,25 +44,25 @@ export async function checkWorld(
   cwd: string = process.cwd()
 ): Promise<number> {
   if (!options.json) {
-    console.log(chalk.blue('🔒 セキュリティチェックを開始します\n'));
+    console.log(chalk.blue('🔒 Starting security check\n'));
   }
 
   try {
     // 1. 設定読み込み
-    const spinner = !options.json ? ora('設定を読み込み中...').start() : null;
+    const spinner = !options.json ? ora('Loading config...').start() : null;
     const config = await loadProjectConfig(cwd);
     const distDir = path.resolve(cwd, config.world.distDir);
-    spinner?.succeed(chalk.green(`設定を読み込みました: distDir=${config.world.distDir}`));
+    spinner?.succeed(chalk.green(`Config loaded: distDir=${config.world.distDir}`));
 
     // 2. ビルドコマンド実行
     if (options.build && config.world.buildCommand) {
       if (!options.json) {
-        console.log(chalk.blue(`\n🔨 ビルドコマンドを実行: ${config.world.buildCommand}\n`));
+        console.log(chalk.blue(`\n🔨 Running build command: ${config.world.buildCommand}\n`));
       }
       const { execSync } = await import('node:child_process');
       execSync(config.world.buildCommand, { cwd, stdio: options.json ? 'ignore' : 'inherit' });
       if (!options.json) {
-        console.log(chalk.green('\n✓ ビルドが完了しました\n'));
+        console.log(chalk.green('\n✓ Build completed\n'));
       }
     }
 
@@ -70,19 +70,19 @@ export async function checkWorld(
     await validateDistDir(distDir);
 
     // 4. JSファイルをスキャン
-    const scanSpinner = !options.json ? ora('ファイルをスキャン中...').start() : null;
+    const scanSpinner = !options.json ? ora('Scanning files...').start() : null;
     const allFiles = await scanDirectory(distDir, config.world.ignore);
     const jsFiles = allFiles.filter((f) => /\.(js|mjs)$/.test(f));
 
     if (jsFiles.length === 0) {
-      scanSpinner?.succeed(chalk.yellow('チェック対象のJSファイルがありません'));
+      scanSpinner?.succeed(chalk.yellow('No JS files to check'));
       if (options.json) {
         console.log(JSON.stringify({ results: [], hasReject: false, hasReview: false }));
       }
       return 0;
     }
 
-    scanSpinner?.succeed(chalk.green(`${jsFiles.length}個のJSファイルを検出しました`));
+    scanSpinner?.succeed(chalk.green(`Found ${jsFiles.length} JS files`));
 
     // 5. セキュリティチェック実行
     const checkResult = await runSecurityCheck(jsFiles, distDir);
@@ -177,7 +177,7 @@ function printResults(checkResult: SecurityCheckResult): void {
       const verdictColor = result.verdict === 'REVIEW' ? chalk.yellow : chalk.red;
 
       console.log(chalk.gray(`━━━ ${result.file} ${'━'.repeat(Math.max(0, 40 - result.file.length))}`));
-      console.log(`  スコア: ${result.score}  判定: ${verdictColor(result.verdict)}`);
+      console.log(`  Score: ${result.score}  Verdict: ${verdictColor(result.verdict)}`);
 
       for (const v of result.violations.critical) {
         const loc = v.location ? ` (line ${v.location.line})` : '';
@@ -198,18 +198,18 @@ function printResults(checkResult: SecurityCheckResult): void {
   const rejectCount = checkResult.results.filter((r) => r.verdict === 'REJECT').length;
 
   console.log(chalk.gray('━'.repeat(40)));
-  let summary = `結果: ${total}ファイル`;
+  let summary = `Results: ${total} files`;
   if (approveCount > 0) summary += `  ${chalk.green(`APPROVE: ${approveCount}`)}`;
   if (reviewCount > 0) summary += `  ${chalk.yellow(`REVIEW: ${reviewCount}`)}`;
   if (rejectCount > 0) summary += `  ${chalk.red(`REJECT: ${rejectCount}`)}`;
   console.log(summary);
 
   if (checkResult.hasReject) {
-    console.log(chalk.red('\n❌ セキュリティチェックに失敗しました'));
+    console.log(chalk.red('\n❌ Security check failed'));
   } else if (checkResult.hasReview) {
-    console.log(chalk.yellow('\n⚠ レビューが必要な項目があります'));
+    console.log(chalk.yellow('\n⚠ Some items require review'));
   } else {
-    console.log(chalk.green('\n✅ セキュリティチェックに合格しました'));
+    console.log(chalk.green('\n✅ Security check passed'));
   }
 }
 

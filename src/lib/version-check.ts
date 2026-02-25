@@ -94,17 +94,17 @@ function displayUpdateNotification(currentVersion: string, latestVersion: string
   console.log();
   console.log(chalk.yellow('━'.repeat(60)));
   console.log(
-    chalk.yellow('  新しいバージョンの XRift CLI が利用可能です!')
+    chalk.yellow('  A new version of XRift CLI is available!')
   );
   console.log(
-    chalk.gray(`  現在のバージョン: ${currentVersion}`)
+    chalk.gray(`  Current version: ${currentVersion}`)
   );
   console.log(
-    chalk.green(`  最新のバージョン: ${latestVersion}`)
+    chalk.green(`  Latest version: ${latestVersion}`)
   );
   console.log();
   console.log(
-    chalk.cyan('  更新するには以下のコマンドを実行してください:')
+    chalk.cyan('  To update, run:')
   );
   console.log(
     chalk.white('  npm install -g @xrift/cli@latest')
