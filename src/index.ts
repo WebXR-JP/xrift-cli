@@ -25,9 +25,9 @@ const program = new Command();
 program
   .name('xrift')
   .description('XRift CLI - Upload worlds and avatars to XRift')
-  .version(packageJson.version, '-v, --version', 'バージョンを表示')
-  .helpOption('-h, --help', 'ヘルプを表示')
-  .option('--verbose', '詳細情報を表示');
+  .version(packageJson.version, '-v, --version', 'Display version')
+  .helpOption('-h, --help', 'Display help')
+  .option('--verbose', 'Show verbose output');
 
 // verboseフラグを事前にチェック
 if (process.argv.includes('--verbose')) {

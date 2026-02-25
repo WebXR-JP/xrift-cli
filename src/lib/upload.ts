@@ -33,48 +33,48 @@ import type {
  * ワールドをアップロード
  */
 export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
-  console.log(chalk.blue('🌍 ワールドアップロードを開始します\n'));
+  console.log(chalk.blue('🌍 Starting world upload\n'));
 
   let spinner: Ora | undefined;
 
   try {
     // 1. プロジェクト設定を読み込み
-    spinner = ora('プロジェクト設定を読み込み中...').start();
+    spinner = ora('Loading project config...').start();
     const config = await loadProjectConfig(cwd);
     const distDir = path.resolve(cwd, config.world.distDir);
-    spinner.succeed(chalk.green(`設定を読み込みました: distDir=${config.world.distDir}`));
+    spinner.succeed(chalk.green(`Config loaded: distDir=${config.world.distDir}`));
 
     // 1.5. ビルドコマンドを実行
     if (config.world.buildCommand) {
-      console.log(chalk.blue(`\n🔨 ビルドコマンドを実行: ${config.world.buildCommand}\n`));
+      console.log(chalk.blue(`\n🔨 Running build command: ${config.world.buildCommand}\n`));
       try {
         const { execSync } = await import('node:child_process');
         execSync(config.world.buildCommand, {
           cwd,
           stdio: 'inherit',
         });
-        console.log(chalk.green('\n✓ ビルドが完了しました\n'));
+        console.log(chalk.green('\n✓ Build completed\n'));
       } catch (error) {
-        console.error(chalk.red('\n✗ ビルドに失敗しました\n'));
+        console.error(chalk.red('\n✗ Build failed\n'));
         throw error;
       }
     }
 
     // 2. distディレクトリを検証
-    spinner = ora('distディレクトリを検証中...').start();
+    spinner = ora('Validating dist directory...').start();
     await validateDistDir(distDir);
-    spinner.succeed(chalk.green('distディレクトリを検証しました'));
+    spinner.succeed(chalk.green('Dist directory validated'));
 
     // 3. ファイルをスキャン
-    spinner = ora('ファイルをスキャン中...').start();
+    spinner = ora('Scanning files...').start();
     const files = await scanDirectory(distDir, config.world.ignore);
 
     if (files.length === 0) {
-      spinner.fail(chalk.red('アップロードするファイルが見つかりません'));
+      spinner.fail(chalk.red('No files found to upload'));
       return;
     }
 
-    spinner.succeed(chalk.green(`${files.length}個のファイルを検出しました`));
+    spinner.succeed(chalk.green(`Found ${files.length} files`));
 
     // 3.5. サムネイル設定を確認
     let thumbnailPath: string | undefined;
@@ -84,14 +84,14 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         const stat = await fs.stat(configuredPath);
         if (stat.isFile()) {
           thumbnailPath = config.world.thumbnailPath;
-          console.log(chalk.green(`✓ サムネイル設定: ${config.world.thumbnailPath}`));
+          console.log(chalk.green(`✓ Thumbnail: ${config.world.thumbnailPath}`));
         } else {
-          throw new Error(`${config.world.thumbnailPath} はファイルではありません`);
+          throw new Error(`${config.world.thumbnailPath} is not a file`);
         }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           throw new Error(
-            `設定されたサムネイルが見つかりません: ${config.world.thumbnailPath}`
+            `Configured thumbnail not found: ${config.world.thumbnailPath}`
           );
         }
         throw error;
@@ -112,9 +112,9 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     );
 
     // 5. 認証済みクライアントを取得
-    spinner = ora('認証情報を確認中...').start();
+    spinner = ora('Verifying credentials...').start();
     const client = await getAuthenticatedClient();
-    spinner.succeed(chalk.green('認証情報を確認しました'));
+    spinner.succeed(chalk.green('Credentials verified'));
 
     // 6. ワールドメタデータを確認（新規/更新判定）
     const existingMetadata = await loadWorldMetadata(cwd);
@@ -123,7 +123,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     let worldDescription: string | undefined;
 
     if (existingMetadata) {
-      logVerbose(`\n既存のワールドを更新します (ID: ${existingMetadata.id})`);
+      logVerbose(`\nUpdating existing world (ID: ${existingMetadata.id})`);
       worldId = existingMetadata.id;
 
       // 更新時は設定ファイルから名前と説明を取得
@@ -131,7 +131,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       worldDescription = config.world.description;
     } else {
       // 新規ワールド作成（Phase 3-2: 空のリクエストボディ）
-      spinner = ora('新規ワールドを作成中...').start();
+      spinner = ora('Creating new world...').start();
 
       try {
         const createRequest: CreateWorldRequest = {};
@@ -139,9 +139,9 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         const response = await client.post<CreateWorldResponse>(WORLD_CREATE_PATH, createRequest);
 
         worldId = response.data.id;
-        spinner.succeed(chalk.green(`新規ワールドを作成しました (ID: ${worldId})`));
+        spinner.succeed(chalk.green(`New world created (ID: ${worldId})`));
       } catch (error) {
-        spinner.fail(chalk.red('ワールドの作成に失敗しました'));
+        spinner.fail(chalk.red('Failed to create world'));
         throw error;
       }
 
@@ -158,15 +158,15 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     }
 
     // 7. contentHashとfileSizeを計算
-    spinner = ora('ファイルのハッシュを計算中...').start();
+    spinner = ora('Calculating file hashes...').start();
     const contentHash = await calculateContentHash(uploadFiles);
     const fileSize = calculateTotalSize(uploadFiles);
     spinner.succeed(
-      chalk.green(`ハッシュ計算完了 (contentHash: ${contentHash}, fileSize: ${fileSize} bytes)`)
+      chalk.green(`Hash calculated (contentHash: ${contentHash}, fileSize: ${fileSize} bytes)`)
     );
 
     // 8. 署名付きURLを取得
-    spinner = ora('アップロード用URLを取得中...').start();
+    spinner = ora('Fetching upload URLs...').start();
 
     let signedUrls: SignedUrlResponse[];
     let versionId: string;
@@ -196,12 +196,12 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
       if (alreadyExists) {
         // 既存バージョンの場合：メタデータのみ更新
-        spinner.succeed(chalk.yellow(`同じ内容のバージョンが既に存在します (v${versionNumber})`));
-        console.log(chalk.yellow('📦 ファイルアップロードをスキップしました'));
+        spinner.succeed(chalk.yellow(`A version with the same content already exists (v${versionNumber})`));
+        console.log(chalk.yellow('📦 File upload skipped'));
 
         // WorldVersionのメタデータを更新
         if (config.world.title || config.world.description || thumbnailPath !== undefined) {
-          spinner = ora('ワールド情報を更新中...').start();
+          spinner = ora('Updating world info...').start();
           try {
             const updateRequest: UpdateWorldVersionMetadataRequest = {};
             if (config.world.title) {
@@ -216,40 +216,40 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
             const updateUrl = `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`;
             logVerbose(`PATCH ${updateUrl}`);
-            logVerbose(`リクエストボディ: ${JSON.stringify(updateRequest, null, 2)}`);
+            logVerbose(`Request body: ${JSON.stringify(updateRequest, null, 2)}`);
 
             const updateResponse = await client.patch<UpdateWorldVersionMetadataResponse>(
               updateUrl,
               updateRequest
             );
 
-            spinner.succeed(chalk.green('✓ ワールド情報を更新しました'));
-            console.log(chalk.gray(`  タイトル: ${updateResponse.data.name}`));
+            spinner.succeed(chalk.green('✓ World info updated'));
+            console.log(chalk.gray(`  Title: ${updateResponse.data.name}`));
             if (updateResponse.data.description) {
-              console.log(chalk.gray(`  説明: ${updateResponse.data.description}`));
+              console.log(chalk.gray(`  Description: ${updateResponse.data.description}`));
             }
             if (updateResponse.data.thumbnailPath) {
-              console.log(chalk.gray(`  サムネイル: ${updateResponse.data.thumbnailPath}`));
+              console.log(chalk.gray(`  Thumbnail: ${updateResponse.data.thumbnailPath}`));
             }
 
-            console.log(chalk.green('\n✅ 処理が完了しました'));
+            console.log(chalk.green('\n✅ Done'));
             return; // 正常終了
           } catch (updateError) {
-            spinner.fail(chalk.red('ワールド情報の更新に失敗しました'));
+            spinner.fail(chalk.red('Failed to update world info'));
             if (axios.isAxiosError(updateError)) {
               if (updateError.response) {
-                console.error(chalk.red(`ステータスコード: ${updateError.response.status}`));
-                console.error(chalk.red(`エラー詳細: ${JSON.stringify(updateError.response.data, null, 2)}`));
+                console.error(chalk.red(`Status code: ${updateError.response.status}`));
+                console.error(chalk.red(`Error details: ${JSON.stringify(updateError.response.data, null, 2)}`));
               } else if (updateError.request) {
-                console.error(chalk.red('リクエストは送信されましたが、レスポンスがありません'));
+                console.error(chalk.red('Request was sent but no response was received'));
               } else {
-                console.error(chalk.red(`エラー: ${updateError.message}`));
+                console.error(chalk.red(`Error: ${updateError.message}`));
               }
             }
             throw updateError;
           }
         } else {
-          console.log(chalk.yellow('更新する情報がありません'));
+          console.log(chalk.yellow('No information to update'));
           return; // 何もせず終了
         }
       }
@@ -257,33 +257,33 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       // 新規バージョンの場合：通常のアップロードフロー
       spinner.succeed(
         chalk.green(
-          `${signedUrls.length}個のアップロードURLを取得しました (バージョン: ${versionNumber})`
+          `Retrieved ${signedUrls.length} upload URLs (version: ${versionNumber})`
         )
       );
 
       // デバッグ: 最初のURLを表示
       if (signedUrls.length > 0) {
-        logVerbose(`デバッグ: 最初のURL構造: ${JSON.stringify(signedUrls[0], null, 2)}`);
+        logVerbose(`Debug: First URL structure: ${JSON.stringify(signedUrls[0], null, 2)}`);
       }
-      logVerbose(`バージョンID: ${versionId}`);
+      logVerbose(`Version ID: ${versionId}`);
     } catch (error) {
-      spinner.fail(chalk.red('アップロードURLの取得に失敗しました'));
+      spinner.fail(chalk.red('Failed to retrieve upload URLs'));
       if (axios.isAxiosError(error) && error.response) {
         const errorData = error.response.data;
         const errorMessage = typeof errorData === 'object' && errorData.error
           ? errorData.error
           : JSON.stringify(errorData);
-        console.error(chalk.red(`バックエンドエラー: ${errorMessage}`));
+        console.error(chalk.red(`Backend error: ${errorMessage}`));
       }
       throw error;
     }
 
     // 9. ファイルをアップロード
-    console.log(chalk.blue('\n📤 ファイルをアップロード中...\n'));
+    console.log(chalk.blue('\n📤 Uploading files...\n'));
 
     const progressBar = new cliProgress.SingleBar(
       {
-        format: `${chalk.cyan('{bar}')} | {percentage}% | {value}/{total} ファイル | {filename}`,
+        format: `${chalk.cyan('{bar}')} | {percentage}% | {value}/{total} files | {filename}`,
         barCompleteChar: '█',
         barIncompleteChar: '░',
         hideCursor: true,
@@ -312,16 +312,16 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         });
       } catch (error) {
         progressBar.stop();
-        console.error(chalk.red(`\n❌ ${fileInfo.remotePath} のアップロードに失敗しました`));
+        console.error(chalk.red(`\n❌ Failed to upload ${fileInfo.remotePath}`));
         throw error;
       }
     }
 
-    progressBar.update(uploadFiles.length, { filename: '完了' });
+    progressBar.update(uploadFiles.length, { filename: 'Done' });
     progressBar.stop();
 
     // 10. アップロード完了通知
-    spinner = ora('アップロード完了を通知中...').start();
+    spinner = ora('Notifying upload completion...').start();
     try {
       const completeRequest: CompleteUploadRequest = {
         versionId,
@@ -334,15 +334,15 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
       spinner.succeed(
         chalk.green(
-          `アップロード完了を通知しました (バージョン: ${completeResponse.data.versionNumber})`
+          `Upload completed (version: ${completeResponse.data.versionNumber})`
         )
       );
-      logVerbose(`ステータス: ${completeResponse.data.status}`);
-      logVerbose(`ワールド名: ${completeResponse.data.name}`);
+      logVerbose(`Status: ${completeResponse.data.status}`);
+      logVerbose(`World name: ${completeResponse.data.name}`);
     } catch (error) {
-      spinner.fail(chalk.red('アップロード完了通知に失敗しました'));
+      spinner.fail(chalk.red('Failed to notify upload completion'));
       if (axios.isAxiosError(error) && error.response) {
-        console.error(chalk.red(`バックエンドエラー: ${JSON.stringify(error.response.data)}`));
+        console.error(chalk.red(`Backend error: ${JSON.stringify(error.response.data)}`));
       }
       throw error;
     }
@@ -357,14 +357,14 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       cwd
     );
 
-    console.log(chalk.green(`\n✅ ワールドアップロード完了: ${uploadFiles.length}ファイル`));
-    logVerbose(`ワールドID: ${worldId}`);
+    console.log(chalk.green(`\n✅ World upload complete: ${uploadFiles.length} files`));
+    logVerbose(`World ID: ${worldId}`);
     if (thumbnailPath) {
-      logVerbose(`サムネイル: ${thumbnailPath}`);
+      logVerbose(`Thumbnail: ${thumbnailPath}`);
     }
   } catch (error) {
     if (spinner) {
-      spinner.fail(chalk.red('エラーが発生しました'));
+      spinner.fail(chalk.red('An error occurred'));
     }
 
     if (error instanceof Error) {
@@ -433,27 +433,27 @@ async function collectWorldMetadata(
   config: { title?: string; description?: string },
   defaultName: string
 ): Promise<{ title: string; description?: string }> {
-  console.log(chalk.blue('\n📝 ワールドの情報を入力してください\n'));
+  console.log(chalk.blue('\n📝 Enter world information\n'));
 
   const response = await prompts(
     [
       {
         type: 'text',
         name: 'title',
-        message: 'ワールドのタイトル',
+        message: 'World title',
         initial: config.title || defaultName,
-        validate: (value: string) => (value.trim() ? true : 'タイトルは必須です'),
+        validate: (value: string) => (value.trim() ? true : 'Title is required'),
       },
       {
         type: 'text',
         name: 'description',
-        message: 'ワールドの説明 (任意)',
+        message: 'World description (optional)',
         initial: config.description || '',
       },
     ],
     {
       onCancel: () => {
-        throw new Error('アップロードがキャンセルされました');
+        throw new Error('Upload cancelled');
       },
     }
   );

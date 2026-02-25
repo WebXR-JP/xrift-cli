@@ -52,23 +52,23 @@ interface CreateOptions {
 }
 
 export const createCommand = new Command('create')
-  .argument('[project-name]', 'プロジェクト名（省略時は対話式）')
+  .argument('[project-name]', 'Project name (interactive if omitted)')
   .option(
     '-t, --template <repository>',
-    'テンプレートリポジトリ（例: WebXR-JP/xrift-world-template）',
+    'Template repository (e.g. WebXR-JP/xrift-world-template)',
     'WebXR-JP/xrift-test-world'
   )
-  .option('--skip-install', '依存関係のインストールをスキップ')
-  .option('--here', 'カレントディレクトリに直接作成')
-  .option('-y, --no-interactive', '対話式モードを無効化')
-  .description('新しいXRiftプロジェクトを作成')
+  .option('--skip-install', 'Skip dependency installation')
+  .option('--here', 'Create directly in the current directory')
+  .option('-y, --no-interactive', 'Disable interactive mode')
+  .description('Create a new XRift project')
   .action(async (projectName: string | undefined, options: CreateOptions) => {
     try {
       // --no-interactive の場合、プロジェクト名が必須
       if (options.interactive === false && !projectName) {
         console.error(
           chalk.red(
-            '\nエラー: --no-interactive を使用する場合はプロジェクト名が必要です'
+            '\nError: Project name is required when using --no-interactive'
           )
         );
         process.exit(1);
@@ -82,7 +82,7 @@ export const createCommand = new Command('create')
           options.skipInstall === undefined);
 
       if (needsInteraction) {
-        console.log(chalk.cyan('\n✨ XRiftワールドを作成します\n'));
+        console.log(chalk.cyan('\n✨ Creating an XRift world\n'));
 
         const questions = [];
 
@@ -91,11 +91,11 @@ export const createCommand = new Command('create')
           questions.push({
             type: 'text',
             name: 'projectName',
-            message: 'プロジェクト名を入力してください',
+            message: 'Enter a project name',
             validate: (value: string) =>
               /^[a-z0-9-]+$/.test(value)
                 ? true
-                : '小文字の英数字とハイフンのみ使用できます',
+                : 'Only lowercase alphanumeric characters and hyphens are allowed',
           });
         }
 
@@ -104,10 +104,10 @@ export const createCommand = new Command('create')
           questions.push({
             type: 'select',
             name: 'location',
-            message: 'どこに作成しますか？',
+            message: 'Where should the project be created?',
             choices: [
-              { title: '新しいディレクトリを作成', value: 'new' },
-              { title: 'カレントディレクトリに直接作成', value: 'here' },
+              { title: 'Create a new directory', value: 'new' },
+              { title: 'Create in the current directory', value: 'here' },
             ],
             initial: 0,
           });
@@ -118,21 +118,21 @@ export const createCommand = new Command('create')
           questions.push({
             type: 'select',
             name: 'templateType',
-            message: 'テンプレートを選択してください',
+            message: 'Select a template',
             choices: [
-              { title: 'デフォルト (WebXR-JP/xrift-test-world)', value: 'default' },
-              { title: 'カスタムテンプレート', value: 'custom' },
+              { title: 'Default (WebXR-JP/xrift-test-world)', value: 'default' },
+              { title: 'Custom template', value: 'custom' },
             ],
             initial: 0,
           });
           questions.push({
             type: (prev: string) => (prev === 'custom' ? 'text' : null),
             name: 'customTemplate',
-            message: 'GitHubリポジトリを入力してください (例: username/repo)',
+            message: 'Enter a GitHub repository (e.g. username/repo)',
             validate: (value: string) =>
               value && value.includes('/')
                 ? true
-                : '正しい形式で入力してください (username/repo)',
+                : 'Please enter a valid format (username/repo)',
           });
         }
 
@@ -141,7 +141,7 @@ export const createCommand = new Command('create')
           questions.push({
             type: 'confirm',
             name: 'install',
-            message: '依存関係をインストールしますか？',
+            message: 'Install dependencies?',
             initial: true,
           });
         }
@@ -150,7 +150,7 @@ export const createCommand = new Command('create')
 
         // ユーザーがキャンセルした場合
         if (Object.keys(response).length === 0) {
-          console.log(chalk.yellow('\n❌ キャンセルされました'));
+          console.log(chalk.yellow('\n❌ Cancelled'));
           process.exit(0);
         }
 
@@ -171,17 +171,17 @@ export const createCommand = new Command('create')
 
       // この時点で projectName は必ず定義されている
       if (!projectName) {
-        console.error(chalk.red('\nエラー: プロジェクト名が指定されていません'));
+        console.error(chalk.red('\nError: Project name is not specified'));
         process.exit(1);
       }
 
-      console.log(chalk.cyan(`\n✨ XRiftワールドを作成します...\n`));
+      console.log(chalk.cyan(`\n✨ Creating an XRift world...\n`));
 
       // プロジェクト名のバリデーション
       if (!/^[a-z0-9-]+$/.test(projectName)) {
         console.error(
           chalk.red(
-            'エラー: プロジェクト名は小文字の英数字とハイフンのみ使用できます'
+            'Error: Project name must contain only lowercase alphanumeric characters and hyphens'
           )
         );
         process.exit(1);
@@ -199,7 +199,7 @@ export const createCommand = new Command('create')
         if (!isEmpty) {
           console.log(
             chalk.yellow(
-              '⚠️  カレントディレクトリは空ではありません。既存のファイルは上書きされる可能性があります。'
+              '⚠️  The current directory is not empty. Existing files may be overwritten.'
             )
           );
         }
@@ -211,7 +211,7 @@ export const createCommand = new Command('create')
         const exists = await pathExists(projectPath);
         if (exists) {
           console.error(
-            chalk.red(`エラー: ディレクトリ "${projectName}" は既に存在します`)
+            chalk.red(`Error: Directory "${projectName}" already exists`)
           );
           process.exit(1);
         }
@@ -229,22 +229,22 @@ export const createCommand = new Command('create')
       }
 
       // 完了メッセージ
-      console.log(chalk.green('\n✅ プロジェクトが作成されました！\n'));
-      console.log(chalk.cyan('次のステップ:'));
+      console.log(chalk.green('\n✅ Project created successfully!\n'));
+      console.log(chalk.cyan('Next steps:'));
       if (!options.here) {
         console.log(`  ${chalk.yellow(`cd ${projectName}`)}`);
       }
       if (options.skipInstall) {
-        console.log(`  ${chalk.yellow('npm install')}       # 依存関係をインストール`);
+        console.log(`  ${chalk.yellow('npm install')}       # Install dependencies`);
       }
-      console.log(`  ${chalk.yellow('npm run dev')}        # 開発サーバー起動`);
-      console.log(`  ${chalk.yellow('npm run build')}      # ビルド`);
-      console.log(`  ${chalk.yellow('xrift upload world')} # XRiftにアップロード\n`);
+      console.log(`  ${chalk.yellow('npm run dev')}        # Start dev server`);
+      console.log(`  ${chalk.yellow('npm run build')}      # Build`);
+      console.log(`  ${chalk.yellow('xrift upload world')} # Upload to XRift\n`);
     } catch (error) {
       if (error instanceof Error) {
-        console.error(chalk.red('\nエラー:'), error.message);
+        console.error(chalk.red('\nError:'), error.message);
       } else {
-        console.error(chalk.red('\n予期しないエラーが発生しました'));
+        console.error(chalk.red('\nAn unexpected error occurred'));
       }
       process.exit(1);
     }
