@@ -28,8 +28,8 @@ xrift login
 # 対話式モードで新規プロジェクトを作成（推奨）
 xrift create
 
-# または、コマンドラインで指定
-xrift create my-world
+# または、サブコマンドで直接指定
+xrift create world my-world
 
 # プロジェクトに移動（新しいディレクトリに作成した場合）
 cd my-world
@@ -38,7 +38,8 @@ cd my-world
 npm run dev
 
 # ワールドをアップロード（buildCommandが設定されていれば自動でビルドされます）
-xrift upload world
+xrift upload        # xrift.json から自動判定
+xrift upload world  # 明示的に指定も可
 ```
 
 ## 使い方
@@ -49,17 +50,21 @@ xrift upload world
 
 #### 対話式モード（推奨）
 
-基本的に対話式で、省略されたオプションのみ質問します：
+`xrift create` を実行すると、まず作成するプロジェクトの種類を選択できます。
+`xrift create world` でワールドを直接指定することもできます。
 
 ```bash
-# 全て対話式で選択
+# 対話式で種類を選択してから作成
 xrift create
 
+# ワールドを直接指定して作成（対話式）
+xrift create world
+
 # プロジェクト名だけ指定、残りは対話式
-xrift create my-world
+xrift create world my-world
 
 # 場所も指定、テンプレートとインストールは対話式
-xrift create my-world --here
+xrift create world my-world --here
 ```
 
 対話式モードでは以下を選択できます：
@@ -74,11 +79,11 @@ xrift create my-world --here
 
 ```bash
 # 対話なし（プロジェクト名は必須）
-xrift create my-world -y
-xrift create my-world --no-interactive
+xrift create world my-world -y
+xrift create world my-world --no-interactive
 
 # 全てのオプションを指定
-xrift create my-world --here --template WebXR-JP/custom-template --skip-install -y
+xrift create world my-world --here --template WebXR-JP/custom-template --skip-install -y
 ```
 
 **オプション一覧:**
@@ -127,12 +132,13 @@ xrift login
 - `thumbnailPath` (任意): `distDir`内のサムネイル画像の相対パス（例: `thumbnail.png`）
 - `buildCommand` (任意): アップロード前に自動実行するビルドコマンド
 
-注：`xrift create` で作成したプロジェクトには自動的に `xrift.json` が含まれています。
+注：`xrift create world` で作成したプロジェクトには自動的に `xrift.json` が含まれています。
 
 ### 4. ワールドをアップロード
 
 ```bash
-xrift upload world
+xrift upload        # xrift.json から自動判定
+xrift upload world  # 明示的に指定
 ```
 
 **アップロードの流れ:**
