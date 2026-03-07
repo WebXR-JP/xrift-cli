@@ -44,7 +44,7 @@ export async function verifyToken(token: string): Promise<VerifyTokenResponse> {
       if (error.response?.status === 401) {
         return { valid: false };
       }
-      throw new Error(`トークンの検証に失敗しました: ${error.message}`);
+      throw new Error(`Failed to verify token: ${error.message}`);
     }
     throw error;
   }
@@ -57,13 +57,13 @@ export async function getAuthenticatedClient(): Promise<AxiosInstance> {
   const token = await getToken();
 
   if (!token) {
-    throw new Error('ログインが必要です。`xrift login` を実行してください。');
+    throw new Error('Login required. Please run `xrift login`.');
   }
 
   // トークンの有効性を確認
   const verification = await verifyToken(token);
   if (!verification.valid) {
-    throw new Error('トークンが無効です。再度ログインしてください。');
+    throw new Error('Token is invalid. Please log in again.');
   }
 
   return createApiClient(token);
@@ -87,10 +87,10 @@ export async function exchangeCodeForToken(
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 401) {
-        throw new Error('認証コードが無効または期限切れです');
+        throw new Error('Authentication code is invalid or expired');
       }
       throw new Error(
-        `トークンの取得に失敗しました: ${error.response?.data?.message || error.message}`
+        `Failed to retrieve token: ${error.response?.data?.message || error.message}`
       );
     }
     throw error;

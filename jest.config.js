@@ -5,6 +5,7 @@ export default {
   testEnvironment: 'node',
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@xrift/code-security$': '<rootDir>/node_modules/@xrift/code-security/dist/index.js',
   },
   transform: {
     '^.+\\.ts$': [
@@ -16,7 +17,16 @@ export default {
         },
       },
     ],
+    'node_modules/@xrift/code-security/.+\\.js$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!@xrift/code-security/)',
+  ],
   moduleFileExtensions: ['ts', 'js', 'json'],
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.ts',

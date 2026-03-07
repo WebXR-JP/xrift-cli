@@ -9,7 +9,7 @@ export async function ensureConfigDir(): Promise<void> {
   try {
     await fs.mkdir(CONFIG_DIR, { recursive: true });
   } catch (error) {
-    throw new Error(`設定ディレクトリの作成に失敗しました: ${CONFIG_DIR}`);
+    throw new Error(`Failed to create config directory: ${CONFIG_DIR}`);
   }
 }
 
@@ -21,7 +21,7 @@ export async function saveAuthConfig(config: AuthConfig): Promise<void> {
   try {
     await fs.writeFile(AUTH_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
   } catch (error) {
-    throw new Error(`認証設定の保存に失敗しました: ${AUTH_CONFIG_FILE}`);
+    throw new Error(`Failed to save auth config: ${AUTH_CONFIG_FILE}`);
   }
 }
 

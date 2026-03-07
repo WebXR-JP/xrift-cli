@@ -48,7 +48,7 @@ describe('project-config', () => {
 
     it('設定ファイルが存在しない場合はエラー', async () => {
       await expect(loadProjectConfig(testDir)).rejects.toThrow(
-        'プロジェクト設定ファイルが見つかりません'
+        'Project config file not found'
       );
     });
 
@@ -60,7 +60,7 @@ describe('project-config', () => {
       );
 
       await expect(loadProjectConfig(testDir)).rejects.toThrow(
-        'world.distDir が設定されていません'
+        'world.distDir is not configured'
       );
     });
 
@@ -182,7 +182,7 @@ describe('project-config', () => {
       const nonExistentDir = path.join(testDir, 'does-not-exist');
 
       await expect(validateDistDir(nonExistentDir)).rejects.toThrow(
-        'distディレクトリが見つかりません'
+        'Dist directory not found'
       );
     });
 
@@ -191,7 +191,7 @@ describe('project-config', () => {
       await fs.writeFile(filePath, 'test');
 
       await expect(validateDistDir(filePath)).rejects.toThrow(
-        'はディレクトリではありません'
+        'is not a directory'
       );
     });
   });

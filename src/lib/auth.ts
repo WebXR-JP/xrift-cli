@@ -30,10 +30,10 @@ export async function login(): Promise<void> {
     callbackUrl
   )}&state=${state}`;
 
-  console.log(chalk.blue('ブラウザで認証を行います...'));
+  console.log(chalk.blue('Authenticating via browser...'));
 
   // Callback serverを起動
-  const spinner = ora({ text: '認証を待機中...', isEnabled: false });
+  const spinner = ora({ text: 'Waiting for authentication...', isEnabled: false });
 
   return new Promise((resolve, reject) => {
     let timeoutId: NodeJS.Timeout;
@@ -52,11 +52,11 @@ export async function login(): Promise<void> {
 
         // CSRF対策: stateパラメータを検証
         if (returnedState !== state) {
-          throw new Error('不正なstateパラメータです');
+          throw new Error('Invalid state parameter');
         }
 
         if (!code) {
-          throw new Error('認証コードが取得できませんでした');
+          throw new Error('Failed to retrieve authentication code');
         }
 
         // コードをトークンと交換
@@ -72,7 +72,7 @@ export async function login(): Promise<void> {
           <html>
             <head>
               <meta charset="utf-8">
-              <title>XRift CLI - ログイン成功</title>
+              <title>XRift CLI - Login Successful</title>
               <style>
                 body {
                   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -96,18 +96,18 @@ export async function login(): Promise<void> {
             </head>
             <body>
               <div class="container">
-                <h1>✅ ログイン成功</h1>
-                <p>XRift CLI へのログインに成功しました！</p>
-                <p>このウィンドウを閉じて、ターミナルに戻ってください。</p>
+                <h1>✅ Login Successful</h1>
+                <p>You have successfully logged in to XRift CLI!</p>
+                <p>You can close this window and return to your terminal.</p>
               </div>
             </body>
           </html>
         `);
 
-        spinner.succeed(chalk.green('✅ ログインに成功しました'));
+        spinner.succeed(chalk.green('✅ Successfully logged in'));
 
         if (user?.displayName) {
-          logVerbose(`ログイン中: ${user.displayName}`);
+          logVerbose(`Logged in as: ${user.displayName}`);
         }
 
         // タイムアウトをクリア
@@ -119,7 +119,7 @@ export async function login(): Promise<void> {
         // server.closeの外で即座に終了
         process.exit(0);
       } catch (error) {
-        spinner.fail(chalk.red('❌ ログインに失敗しました'));
+        spinner.fail(chalk.red('❌ Login failed'));
 
         if (error instanceof Error) {
           console.error(chalk.red(error.message));
@@ -132,7 +132,7 @@ export async function login(): Promise<void> {
           <html>
             <head>
               <meta charset="utf-8">
-              <title>XRift CLI - ログイン失敗</title>
+              <title>XRift CLI - Login Failed</title>
               <style>
                 body {
                   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -156,9 +156,9 @@ export async function login(): Promise<void> {
             </head>
             <body>
               <div class="container">
-                <h1>❌ ログイン失敗</h1>
-                <p>認証に失敗しました。</p>
-                <p>ターミナルに戻り、もう一度お試しください。</p>
+                <h1>❌ Login Failed</h1>
+                <p>Authentication failed.</p>
+                <p>Please return to your terminal and try again.</p>
               </div>
             </body>
           </html>
@@ -178,19 +178,19 @@ export async function login(): Promise<void> {
     server.listen(CALLBACK_PORT, () => {
       // ブラウザを開く
       open(loginUrl).catch(() => {
-        spinner.warn('ブラウザを自動で開けませんでした');
-        console.log(chalk.yellow('\n以下のURLをブラウザで開いてください:'));
+        spinner.warn('Could not open browser automatically');
+        console.log(chalk.yellow('\nPlease open the following URL in your browser:'));
         console.log(chalk.blue(loginUrl));
       });
     });
 
     // タイムアウト設定（5分）
     timeoutId = setTimeout(() => {
-      spinner.fail(chalk.red('認証がタイムアウトしました'));
+      spinner.fail(chalk.red('Authentication timed out'));
       server.close(() => {
         // サーバーを閉じたらすぐに終了
         setTimeout(() => process.exit(1), 100);
-        reject(new Error('認証がタイムアウトしました'));
+        reject(new Error('Authentication timed out'));
       });
     }, 5 * 60 * 1000);
   });
@@ -203,12 +203,12 @@ export async function logout(): Promise<void> {
   const token = await getToken();
 
   if (!token) {
-    console.log(chalk.yellow('ログインしていません'));
+    console.log(chalk.yellow('Not logged in'));
     return;
   }
 
   await deleteAuthConfig();
-  console.log(chalk.green('✅ ログアウトしました'));
+  console.log(chalk.green('✅ Logged out successfully'));
 }
 
 /**
@@ -218,35 +218,35 @@ export async function whoami(): Promise<void> {
   const token = await getToken();
 
   if (!token) {
-    console.log(chalk.yellow('ログインしていません'));
-    logVerbose('`xrift login` を実行してログインしてください');
+    console.log(chalk.yellow('Not logged in'));
+    logVerbose('Run `xrift login` to log in');
     return;
   }
 
-  const spinner = ora('ユーザー情報を取得中...').start();
+  const spinner = ora('Fetching user info...').start();
 
   try {
     const verification = await verifyToken(token);
 
     if (!verification.valid) {
-      spinner.fail(chalk.red('トークンが無効です'));
-      logVerbose('再度ログインしてください: `xrift login`');
+      spinner.fail(chalk.red('Token is invalid'));
+      logVerbose('Please log in again: `xrift login`');
       return;
     }
 
-    spinner.succeed(chalk.green('ログイン中'));
+    spinner.succeed(chalk.green('Logged in'));
 
     if (verification.user?.displayName) {
-      console.log(chalk.blue('表示名:'), verification.user.displayName);
+      console.log(chalk.blue('Display Name:'), verification.user.displayName);
     }
     if (verification.user?.email) {
-      console.log(chalk.blue('メール:'), verification.user.email);
+      console.log(chalk.blue('Email:'), verification.user.email);
     }
     if (verification.user?.id) {
-      console.log(chalk.blue('ユーザーID:'), verification.user.id);
+      console.log(chalk.blue('User ID:'), verification.user.id);
     }
   } catch (error) {
-    spinner.fail(chalk.red('ユーザー情報の取得に失敗しました'));
+    spinner.fail(chalk.red('Failed to fetch user info'));
     if (error instanceof Error) {
       console.error(chalk.red(error.message));
     }

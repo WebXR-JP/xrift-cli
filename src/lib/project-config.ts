@@ -16,15 +16,15 @@ export async function loadProjectConfig(cwd: string = process.cwd()): Promise<Xr
 
     // バリデーション
     if (!config.world?.distDir) {
-      throw new Error('xrift.json に world.distDir が設定されていません');
+      throw new Error('world.distDir is not configured in xrift.json');
     }
 
     return config;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       throw new Error(
-        `プロジェクト設定ファイルが見つかりません: ${PROJECT_CONFIG_FILE}\n` +
-          'プロジェクトルートに xrift.json を作成してください。'
+        `Project config file not found: ${PROJECT_CONFIG_FILE}\n` +
+          'Please create xrift.json in the project root.'
       );
     }
     throw error;
@@ -118,11 +118,11 @@ export async function validateDistDir(distDir: string): Promise<void> {
   try {
     const stat = await fs.stat(distDir);
     if (!stat.isDirectory()) {
-      throw new Error(`${distDir} はディレクトリではありません`);
+      throw new Error(`${distDir} is not a directory`);
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new Error(`distディレクトリが見つかりません: ${distDir}`);
+      throw new Error(`Dist directory not found: ${distDir}`);
     }
     throw error;
   }

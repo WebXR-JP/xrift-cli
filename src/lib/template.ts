@@ -24,16 +24,16 @@ export async function downloadTemplate(
   template: string,
   destination: string
 ): Promise<void> {
-  const spinner = ora('テンプレートをダウンロード中...').start();
+  const spinner = ora('Downloading template...').start();
 
   try {
     await gigetDownload(`github:${template}`, {
       dir: destination,
       force: true, // 既存ディレクトリへの展開を許可
     });
-    spinner.succeed('テンプレートをダウンロードしました');
+    spinner.succeed('Template downloaded');
   } catch (error) {
-    spinner.fail('テンプレートのダウンロードに失敗しました');
+    spinner.fail('Failed to download template');
     throw error;
   }
 }
@@ -77,7 +77,7 @@ export async function customizeProject(
   projectName: string,
   projectPath: string
 ): Promise<void> {
-  const spinner = ora('プロジェクトをカスタマイズ中...').start();
+  const spinner = ora('Customizing project...').start();
 
   try {
     const snakeCaseName = toSnakeCase(projectName);
@@ -102,9 +102,9 @@ export async function customizeProject(
       { from: '<title>XRift World Template</title>', to: `<title>${projectName}</title>` },
     ]);
 
-    spinner.succeed('プロジェクトをカスタマイズしました');
+    spinner.succeed('Project customized');
   } catch (error) {
-    spinner.fail('プロジェクトのカスタマイズに失敗しました');
+    spinner.fail('Failed to customize project');
     throw error;
   }
 }
@@ -113,26 +113,27 @@ export async function customizeProject(
  * 依存関係をインストールする
  */
 export async function installDependencies(projectPath: string): Promise<void> {
-  const spinner = ora('依存関係をインストール中...').start();
+  const spinner = ora('Installing dependencies...').start();
 
   return new Promise((resolve, reject) => {
     const npm = spawn('npm', ['install'], {
       cwd: projectPath,
       stdio: 'pipe',
+      shell: true,
     });
 
     npm.on('close', (code) => {
       if (code === 0) {
-        spinner.succeed('依存関係をインストールしました');
+        spinner.succeed('Dependencies installed');
         resolve();
       } else {
-        spinner.fail('依存関係のインストールに失敗しました');
+        spinner.fail('Failed to install dependencies');
         reject(new Error(`npm install exited with code ${code}`));
       }
     });
 
     npm.on('error', (error) => {
-      spinner.fail('依存関係のインストールに失敗しました');
+      spinner.fail('Failed to install dependencies');
       reject(error);
     });
   });

@@ -2,17 +2,17 @@ import { Command } from 'commander';
 import { uploadWorld } from '../lib/upload.js';
 
 export const uploadCommand = new Command('upload')
-  .description('ワールドまたはアバターをアップロード');
+  .description('Upload a world or avatar');
 
 uploadCommand
   .command('world')
-  .description('ワールドをアップロード')
+  .description('Upload a world')
   .action(async () => {
     try {
       await uploadWorld();
     } catch (error) {
       if (error instanceof Error) {
-        console.error('エラー:', error.message);
+        console.error('Error:', error.message);
       }
       process.exit(1);
     }
