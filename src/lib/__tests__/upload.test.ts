@@ -142,5 +142,126 @@ describe('upload - メタデータ更新ロジックテスト', () => {
 
       expect(shouldUpdate).toBe(false);
     });
+
+    it('physicsが設定されている場合、更新リクエストに含まれる', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          title: 'Test World',
+          physics: {
+            gravity: -9.81,
+            allowInfiniteJump: true,
+          },
+        },
+      };
+
+      const thumbnailPath = undefined;
+
+      // メタデータ更新条件をチェック（physicsも含む）
+      const shouldUpdate = !!(
+        config.world.title ||
+        config.world.physics ||
+        thumbnailPath !== undefined
+      );
+
+      expect(shouldUpdate).toBe(true);
+
+      // 更新リクエストを作成
+      const updateRequest: {
+        name?: string;
+        description?: string;
+        thumbnailPath?: string;
+        physics?: { gravity?: number; allowInfiniteJump?: boolean };
+      } = {};
+      if (config.world.title) {
+        updateRequest.name = config.world.title;
+      }
+      if (config.world.physics) {
+        updateRequest.physics = config.world.physics;
+      }
+
+      expect(updateRequest).toEqual({
+        name: 'Test World',
+        physics: {
+          gravity: -9.81,
+          allowInfiniteJump: true,
+        },
+      });
+    });
+
+    it('physicsのみが設定されている場合、physicsのみを含む更新リクエストが作成される', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          title: undefined as string | undefined,
+          description: undefined as string | undefined,
+          physics: {
+            gravity: -20,
+          },
+        },
+      };
+
+      const thumbnailPath = undefined;
+
+      // メタデータ更新条件をチェック（physicsも含む）
+      const shouldUpdate = !!(
+        config.world.title ||
+        config.world.description ||
+        config.world.physics ||
+        thumbnailPath !== undefined
+      );
+
+      expect(shouldUpdate).toBe(true);
+
+      // 更新リクエストを作成
+      const updateRequest: {
+        name?: string;
+        description?: string;
+        thumbnailPath?: string;
+        physics?: { gravity?: number; allowInfiniteJump?: boolean };
+      } = {};
+      if (config.world.title) {
+        updateRequest.name = config.world.title;
+      }
+      if (config.world.description !== undefined) {
+        updateRequest.description = config.world.description;
+      }
+      if (thumbnailPath !== undefined) {
+        updateRequest.thumbnailPath = thumbnailPath;
+      }
+      if (config.world.physics) {
+        updateRequest.physics = config.world.physics;
+      }
+
+      expect(updateRequest).toEqual({
+        physics: {
+          gravity: -20,
+        },
+      });
+    });
+
+    it('physicsがallowInfiniteJumpのみの場合も正しく更新リクエストに含まれる', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          physics: {
+            allowInfiniteJump: false,
+          },
+        },
+      };
+
+      const updateRequest: {
+        physics?: { gravity?: number; allowInfiniteJump?: boolean };
+      } = {};
+      if (config.world.physics) {
+        updateRequest.physics = config.world.physics;
+      }
+
+      expect(updateRequest).toEqual({
+        physics: {
+          allowInfiniteJump: false,
+        },
+      });
+    });
   });
 });
