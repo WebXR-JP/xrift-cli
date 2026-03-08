@@ -4,6 +4,19 @@ import { minimatch } from 'minimatch';
 import { PROJECT_CONFIG_FILE, PROJECT_META_DIR, WORLD_META_FILE } from './constants.js';
 import type { XriftConfig, WorldMetadata } from '../types/index.js';
 
+export type ProjectType = 'world'; // 将来: | 'item'
+
+/**
+ * xrift.json を読み込み、トップレベルキーからプロジェクトタイプを判定
+ */
+export async function detectProjectType(cwd: string = process.cwd()): Promise<ProjectType> {
+  const configPath = path.join(cwd, PROJECT_CONFIG_FILE);
+  const data = await fs.readFile(configPath, 'utf-8');
+  const config = JSON.parse(data);
+  if (config.world) return 'world';
+  throw new Error('No recognized project type found in xrift.json');
+}
+
 /**
  * プロジェクト設定ファイル (xrift.json) を読み込み
  */
