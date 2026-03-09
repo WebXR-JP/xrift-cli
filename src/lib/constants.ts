@@ -34,5 +34,4 @@ export const WORLD_COMPLETE_PATH = '/api/public/v1/worlds'; // :id/complete を�
 
 // Item API endpoints
 export const ITEM_CREATE_PATH = '/api/items';
-export const ITEM_UPDATE_PATH = '/api/items';
-export const ITEM_COMPLETE_PATH = '/api/items'; // :id/complete をつけて使用
+export const ITEM_BASE_PATH = '/api/items'; // :itemId/upload-urls, :itemId/complete をつけて使用

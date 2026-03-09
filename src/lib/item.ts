@@ -14,19 +14,14 @@ import {
   scanDirectory,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
-import { ITEM_CREATE_PATH, ITEM_UPDATE_PATH, ITEM_COMPLETE_PATH } from './constants.js';
+import { ITEM_CREATE_PATH, ITEM_BASE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
 import type {
-  CreateItemResponse,
   CreateItemRequest,
-  SignedUrlResponse,
+  CreateItemResponse,
   UploadFileInfo,
   ItemUploadUrlsRequest,
   ItemUploadUrlsResponse,
-  ItemCompleteUploadRequest,
-  ItemCompleteUploadResponse,
-  UpdateItemVersionMetadataRequest,
-  UpdateItemVersionMetadataResponse,
 } from '../types/index.js';
 
 /**
@@ -83,28 +78,6 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
 
     spinner.succeed(chalk.green(`Found ${files.length} files`));
 
-    // 3.5. サムネイル設定を確認
-    let thumbnailPath: string | undefined;
-    if (itemConfig.thumbnailPath) {
-      const configuredPath = path.join(distDir, itemConfig.thumbnailPath);
-      try {
-        const stat = await fs.stat(configuredPath);
-        if (stat.isFile()) {
-          thumbnailPath = itemConfig.thumbnailPath;
-          console.log(chalk.green(`✓ Thumbnail: ${itemConfig.thumbnailPath}`));
-        } else {
-          throw new Error(`${itemConfig.thumbnailPath} is not a file`);
-        }
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-          throw new Error(
-            `Configured thumbnail not found: ${itemConfig.thumbnailPath}`
-          );
-        }
-        throw error;
-      }
-    }
-
     // 4. ファイル情報を準備
     const uploadFiles: UploadFileInfo[] = await Promise.all(
       files.map(async (filePath) => {
@@ -126,21 +99,28 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
     // 6. アイテムメタデータを確認（新規/更新判定）
     const existingMetadata = await loadItemMetadata(cwd);
     let itemId: string;
-    let itemName: string;
-    let itemDescription: string | undefined;
 
     if (existingMetadata) {
       logVerbose(`\nUpdating existing item (ID: ${existingMetadata.id})`);
       itemId = existingMetadata.id;
-
-      itemName = itemConfig.title || path.basename(cwd);
-      itemDescription = itemConfig.description;
     } else {
       // 新規アイテム作成
       spinner = ora('Creating new item...').start();
 
+      // メタデータを収集
+      const metadata = await collectItemMetadata(
+        {
+          title: itemConfig.title,
+          description: itemConfig.description,
+        },
+        path.basename(cwd)
+      );
+
       try {
-        const createRequest: CreateItemRequest = {};
+        const createRequest: CreateItemRequest = {
+          name: metadata.title,
+          description: metadata.description,
+        };
 
         const response = await client.post<CreateItemResponse>(ITEM_CREATE_PATH, createRequest);
 
@@ -150,17 +130,6 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
         spinner.fail(chalk.red('Failed to create item'));
         throw error;
       }
-
-      // 新規作成時はメタデータを収集
-      const metadata = await collectItemMetadata(
-        {
-          title: itemConfig.title,
-          description: itemConfig.description,
-        },
-        path.basename(cwd)
-      );
-      itemName = metadata.title;
-      itemDescription = metadata.description;
     }
 
     // 7. contentHashとfileSizeを計算
@@ -174,14 +143,8 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
     // 8. 署名付きURLを取得
     spinner = ora('Fetching upload URLs...').start();
 
-    let signedUrls: SignedUrlResponse[];
-    let versionId: string;
-    let versionNumber: number;
     try {
       const uploadUrlsRequest: ItemUploadUrlsRequest = {
-        name: itemName,
-        description: itemDescription,
-        thumbnailPath: thumbnailPath,
         contentHash,
         fileSize,
         files: uploadFiles.map((f) => ({
@@ -191,161 +154,76 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
       };
 
       const response = await client.post<ItemUploadUrlsResponse>(
-        `${ITEM_UPDATE_PATH}/${itemId}/upload-urls`,
+        `${ITEM_BASE_PATH}/${itemId}/upload-urls`,
         uploadUrlsRequest
       );
 
-      signedUrls = response.data.uploadUrls;
-      versionId = response.data.versionId;
-      versionNumber = response.data.versionNumber;
-      const alreadyExists = response.data.alreadyExists || false;
-
-      if (alreadyExists) {
-        spinner.succeed(chalk.yellow(`A version with the same content already exists (v${versionNumber})`));
-        console.log(chalk.yellow('📦 File upload skipped'));
-
-        // ItemVersionのメタデータを更新
-        if (itemConfig.title || itemConfig.description || thumbnailPath !== undefined) {
-          spinner = ora('Updating item info...').start();
-          try {
-            const updateRequest: UpdateItemVersionMetadataRequest = {};
-            if (itemConfig.title) {
-              updateRequest.name = itemConfig.title;
-            }
-            if (itemConfig.description !== undefined) {
-              updateRequest.description = itemConfig.description;
-            }
-            if (thumbnailPath !== undefined) {
-              updateRequest.thumbnailPath = thumbnailPath;
-            }
-
-            const updateUrl = `${ITEM_UPDATE_PATH}/${itemId}/versions/${versionId}`;
-            logVerbose(`PATCH ${updateUrl}`);
-            logVerbose(`Request body: ${JSON.stringify(updateRequest, null, 2)}`);
-
-            const updateResponse = await client.patch<UpdateItemVersionMetadataResponse>(
-              updateUrl,
-              updateRequest
-            );
-
-            spinner.succeed(chalk.green('✓ Item info updated'));
-            console.log(chalk.gray(`  Title: ${updateResponse.data.name}`));
-            if (updateResponse.data.description) {
-              console.log(chalk.gray(`  Description: ${updateResponse.data.description}`));
-            }
-            if (updateResponse.data.thumbnailPath) {
-              console.log(chalk.gray(`  Thumbnail: ${updateResponse.data.thumbnailPath}`));
-            }
-
-            console.log(chalk.green('\n✅ Done'));
-            return;
-          } catch (updateError) {
-            spinner.fail(chalk.red('Failed to update item info'));
-            if (axios.isAxiosError(updateError)) {
-              if (updateError.response) {
-                console.error(chalk.red(`Status code: ${updateError.response.status}`));
-                console.error(chalk.red(`Error details: ${JSON.stringify(updateError.response.data, null, 2)}`));
-              } else if (updateError.request) {
-                console.error(chalk.red('Request was sent but no response was received'));
-              } else {
-                console.error(chalk.red(`Error: ${updateError.message}`));
-              }
-            }
-            throw updateError;
-          }
-        } else {
-          console.log(chalk.yellow('No information to update'));
-          return;
-        }
-      }
+      const signedUrls = response.data.uploadUrls;
 
       spinner.succeed(
-        chalk.green(
-          `Retrieved ${signedUrls.length} upload URLs (version: ${versionNumber})`
-        )
+        chalk.green(`Retrieved ${signedUrls.length} upload URLs`)
       );
 
       if (signedUrls.length > 0) {
         logVerbose(`Debug: First URL structure: ${JSON.stringify(signedUrls[0], null, 2)}`);
       }
-      logVerbose(`Version ID: ${versionId}`);
+
+      // 9. ファイルをアップロード
+      console.log(chalk.blue('\n📤 Uploading files...\n'));
+
+      const progressBar = new cliProgress.SingleBar(
+        {
+          format: `${chalk.cyan('{bar}')} | {percentage}% | {value}/{total} files | {filename}`,
+          barCompleteChar: '█',
+          barIncompleteChar: '░',
+          hideCursor: true,
+        },
+        cliProgress.Presets.shades_classic
+      );
+
+      progressBar.start(uploadFiles.length, 0, { filename: '' });
+
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const fileInfo = uploadFiles[i];
+        const signedUrl = signedUrls[i];
+
+        progressBar.update(i, { filename: fileInfo.remotePath });
+
+        try {
+          const fileBuffer = await fs.readFile(fileInfo.localPath);
+
+          await axios.put(signedUrl.uploadUrl, fileBuffer, {
+            headers: {
+              'Content-Type': getMimeType(fileInfo.localPath),
+              'Content-Length': fileInfo.size,
+            },
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+          });
+        } catch (error) {
+          progressBar.stop();
+          console.error(chalk.red(`\n❌ Failed to upload ${fileInfo.remotePath}`));
+          throw error;
+        }
+      }
+
+      progressBar.update(uploadFiles.length, { filename: 'Done' });
+      progressBar.stop();
+
+      // 10. アップロード完了通知
+      spinner = ora('Notifying upload completion...').start();
+
+      await client.post(`${ITEM_BASE_PATH}/${itemId}/complete`);
+
+      spinner.succeed(chalk.green('Upload completed'));
     } catch (error) {
-      spinner.fail(chalk.red('Failed to retrieve upload URLs'));
+      spinner.fail(chalk.red('Failed during upload'));
       if (axios.isAxiosError(error) && error.response) {
         const errorData = error.response.data;
         const errorMessage = typeof errorData === 'object' && errorData.error
           ? errorData.error
           : JSON.stringify(errorData);
         console.error(chalk.red(`Backend error: ${errorMessage}`));
-      }
-      throw error;
-    }
-
-    // 9. ファイルをアップロード
-    console.log(chalk.blue('\n📤 Uploading files...\n'));
-
-    const progressBar = new cliProgress.SingleBar(
-      {
-        format: `${chalk.cyan('{bar}')} | {percentage}% | {value}/{total} files | {filename}`,
-        barCompleteChar: '█',
-        barIncompleteChar: '░',
-        hideCursor: true,
-      },
-      cliProgress.Presets.shades_classic
-    );
-
-    progressBar.start(uploadFiles.length, 0, { filename: '' });
-
-    for (let i = 0; i < uploadFiles.length; i++) {
-      const fileInfo = uploadFiles[i];
-      const signedUrl = signedUrls[i];
-
-      progressBar.update(i, { filename: fileInfo.remotePath });
-
-      try {
-        const fileBuffer = await fs.readFile(fileInfo.localPath);
-
-        await axios.put(signedUrl.uploadUrl, fileBuffer, {
-          headers: {
-            'Content-Type': getMimeType(fileInfo.localPath),
-            'Content-Length': fileInfo.size,
-          },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-        });
-      } catch (error) {
-        progressBar.stop();
-        console.error(chalk.red(`\n❌ Failed to upload ${fileInfo.remotePath}`));
-        throw error;
-      }
-    }
-
-    progressBar.update(uploadFiles.length, { filename: 'Done' });
-    progressBar.stop();
-
-    // 10. アップロード完了通知
-    spinner = ora('Notifying upload completion...').start();
-    try {
-      const completeRequest: ItemCompleteUploadRequest = {
-        versionId,
-      };
-
-      const completeResponse = await client.post<ItemCompleteUploadResponse>(
-        `${ITEM_COMPLETE_PATH}/${itemId}/complete`,
-        completeRequest
-      );
-
-      spinner.succeed(
-        chalk.green(
-          `Upload completed (version: ${completeResponse.data.versionNumber})`
-        )
-      );
-      logVerbose(`Status: ${completeResponse.data.status}`);
-      logVerbose(`Item name: ${completeResponse.data.name}`);
-    } catch (error) {
-      spinner.fail(chalk.red('Failed to notify upload completion'));
-      if (axios.isAxiosError(error) && error.response) {
-        console.error(chalk.red(`Backend error: ${JSON.stringify(error.response.data)}`));
       }
       throw error;
     }
@@ -362,9 +240,6 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
 
     console.log(chalk.green(`\n✅ Item upload complete: ${uploadFiles.length} files`));
     logVerbose(`Item ID: ${itemId}`);
-    if (thumbnailPath) {
-      logVerbose(`Thumbnail: ${thumbnailPath}`);
-    }
   } catch (error) {
     if (spinner) {
       spinner.fail(chalk.red('An error occurred'));
