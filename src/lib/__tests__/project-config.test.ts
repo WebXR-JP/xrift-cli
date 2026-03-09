@@ -64,6 +64,18 @@ describe('project-config', () => {
       );
     });
 
+    it('world も item も設定されていない場合はエラー', async () => {
+      const invalidConfig = {};
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(invalidConfig, null, 2)
+      );
+
+      await expect(loadProjectConfig(testDir)).rejects.toThrow(
+        'world or item must be configured'
+      );
+    });
+
     it('physics設定を含む設定ファイルを読み込める', async () => {
       const config: XriftConfig = {
         world: {
@@ -83,8 +95,8 @@ describe('project-config', () => {
 
       const loaded = await loadProjectConfig(testDir);
       expect(loaded).toEqual(config);
-      expect(loaded.world.physics?.gravity).toBe(-9.81);
-      expect(loaded.world.physics?.allowInfiniteJump).toBe(true);
+      expect(loaded.world!.physics?.gravity).toBe(-9.81);
+      expect(loaded.world!.physics?.allowInfiniteJump).toBe(true);
     });
 
     it('physics設定が部分的に指定されている場合も読み込める', async () => {
@@ -103,8 +115,8 @@ describe('project-config', () => {
       );
 
       const loaded = await loadProjectConfig(testDir);
-      expect(loaded.world.physics?.gravity).toBe(-20);
-      expect(loaded.world.physics?.allowInfiniteJump).toBeUndefined();
+      expect(loaded.world!.physics?.gravity).toBe(-20);
+      expect(loaded.world!.physics?.allowInfiniteJump).toBeUndefined();
     });
   });
 

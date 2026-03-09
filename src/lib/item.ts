@@ -8,32 +8,32 @@ import axios from 'axios';
 import prompts from 'prompts';
 import {
   loadProjectConfig,
-  loadWorldMetadata,
-  saveWorldMetadata,
+  loadItemMetadata,
+  saveItemMetadata,
   validateDistDir,
   scanDirectory,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
-import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
+import { ITEM_CREATE_PATH, ITEM_UPDATE_PATH, ITEM_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
 import type {
-  CreateWorldResponse,
-  CreateWorldRequest,
+  CreateItemResponse,
+  CreateItemRequest,
   SignedUrlResponse,
   UploadFileInfo,
-  UploadUrlsRequest,
-  UploadUrlsResponse,
-  CompleteUploadRequest,
-  CompleteUploadResponse,
-  UpdateWorldVersionMetadataRequest,
-  UpdateWorldVersionMetadataResponse,
+  ItemUploadUrlsRequest,
+  ItemUploadUrlsResponse,
+  ItemCompleteUploadRequest,
+  ItemCompleteUploadResponse,
+  UpdateItemVersionMetadataRequest,
+  UpdateItemVersionMetadataResponse,
 } from '../types/index.js';
 
 /**
- * ワールドをアップロード
+ * アイテムをアップロード
  */
-export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
-  console.log(chalk.blue('🌍 Starting world upload\n'));
+export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
+  console.log(chalk.blue('📦 Starting item upload\n'));
 
   let spinner: Ora | undefined;
 
@@ -42,21 +42,21 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     spinner = ora('Loading project config...').start();
     const config = await loadProjectConfig(cwd);
 
-    if (!config.world) {
-      spinner.fail(chalk.red('No world config found in xrift.json'));
-      throw new Error('world is not configured in xrift.json');
+    if (!config.item) {
+      spinner.fail(chalk.red('No item config found in xrift.json'));
+      throw new Error('item is not configured in xrift.json');
     }
 
-    const worldConfig = config.world;
-    const distDir = path.resolve(cwd, worldConfig.distDir);
-    spinner.succeed(chalk.green(`Config loaded: distDir=${worldConfig.distDir}`));
+    const itemConfig = config.item;
+    const distDir = path.resolve(cwd, itemConfig.distDir);
+    spinner.succeed(chalk.green(`Config loaded: distDir=${itemConfig.distDir}`));
 
     // 1.5. ビルドコマンドを実行
-    if (worldConfig.buildCommand) {
-      console.log(chalk.blue(`\n🔨 Running build command: ${worldConfig.buildCommand}\n`));
+    if (itemConfig.buildCommand) {
+      console.log(chalk.blue(`\n🔨 Running build command: ${itemConfig.buildCommand}\n`));
       try {
         const { execSync } = await import('node:child_process');
-        execSync(worldConfig.buildCommand, {
+        execSync(itemConfig.buildCommand, {
           cwd,
           stdio: 'inherit',
         });
@@ -74,7 +74,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     // 3. ファイルをスキャン
     spinner = ora('Scanning files...').start();
-    const files = await scanDirectory(distDir, worldConfig.ignore);
+    const files = await scanDirectory(distDir, itemConfig.ignore);
 
     if (files.length === 0) {
       spinner.fail(chalk.red('No files found to upload'));
@@ -85,20 +85,20 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     // 3.5. サムネイル設定を確認
     let thumbnailPath: string | undefined;
-    if (worldConfig.thumbnailPath) {
-      const configuredPath = path.join(distDir, worldConfig.thumbnailPath);
+    if (itemConfig.thumbnailPath) {
+      const configuredPath = path.join(distDir, itemConfig.thumbnailPath);
       try {
         const stat = await fs.stat(configuredPath);
         if (stat.isFile()) {
-          thumbnailPath = worldConfig.thumbnailPath;
-          console.log(chalk.green(`✓ Thumbnail: ${worldConfig.thumbnailPath}`));
+          thumbnailPath = itemConfig.thumbnailPath;
+          console.log(chalk.green(`✓ Thumbnail: ${itemConfig.thumbnailPath}`));
         } else {
-          throw new Error(`${worldConfig.thumbnailPath} is not a file`);
+          throw new Error(`${itemConfig.thumbnailPath} is not a file`);
         }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           throw new Error(
-            `Configured thumbnail not found: ${worldConfig.thumbnailPath}`
+            `Configured thumbnail not found: ${itemConfig.thumbnailPath}`
           );
         }
         throw error;
@@ -112,7 +112,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         const relativePath = path.relative(distDir, filePath);
         return {
           localPath: filePath,
-          remotePath: relativePath.replace(/\\/g, '/'), // Windows対応
+          remotePath: relativePath.replace(/\\/g, '/'),
           size: stat.size,
         };
       })
@@ -123,45 +123,44 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     const client = await getAuthenticatedClient();
     spinner.succeed(chalk.green('Credentials verified'));
 
-    // 6. ワールドメタデータを確認（新規/更新判定）
-    const existingMetadata = await loadWorldMetadata(cwd);
-    let worldId: string;
-    let worldName: string;
-    let worldDescription: string | undefined;
+    // 6. アイテムメタデータを確認（新規/更新判定）
+    const existingMetadata = await loadItemMetadata(cwd);
+    let itemId: string;
+    let itemName: string;
+    let itemDescription: string | undefined;
 
     if (existingMetadata) {
-      logVerbose(`\nUpdating existing world (ID: ${existingMetadata.id})`);
-      worldId = existingMetadata.id;
+      logVerbose(`\nUpdating existing item (ID: ${existingMetadata.id})`);
+      itemId = existingMetadata.id;
 
-      // 更新時は設定ファイルから名前と説明を取得
-      worldName = worldConfig.title || path.basename(cwd);
-      worldDescription = worldConfig.description;
+      itemName = itemConfig.title || path.basename(cwd);
+      itemDescription = itemConfig.description;
     } else {
-      // 新規ワールド作成（Phase 3-2: 空のリクエストボディ）
-      spinner = ora('Creating new world...').start();
+      // 新規アイテム作成
+      spinner = ora('Creating new item...').start();
 
       try {
-        const createRequest: CreateWorldRequest = {};
+        const createRequest: CreateItemRequest = {};
 
-        const response = await client.post<CreateWorldResponse>(WORLD_CREATE_PATH, createRequest);
+        const response = await client.post<CreateItemResponse>(ITEM_CREATE_PATH, createRequest);
 
-        worldId = response.data.id;
-        spinner.succeed(chalk.green(`New world created (ID: ${worldId})`));
+        itemId = response.data.id;
+        spinner.succeed(chalk.green(`New item created (ID: ${itemId})`));
       } catch (error) {
-        spinner.fail(chalk.red('Failed to create world'));
+        spinner.fail(chalk.red('Failed to create item'));
         throw error;
       }
 
       // 新規作成時はメタデータを収集
-      const metadata = await collectWorldMetadata(
+      const metadata = await collectItemMetadata(
         {
-          title: worldConfig.title,
-          description: worldConfig.description,
+          title: itemConfig.title,
+          description: itemConfig.description,
         },
         path.basename(cwd)
       );
-      worldName = metadata.title;
-      worldDescription = metadata.description;
+      itemName = metadata.title;
+      itemDescription = metadata.description;
     }
 
     // 7. contentHashとfileSizeを計算
@@ -179,11 +178,10 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     let versionId: string;
     let versionNumber: number;
     try {
-      const uploadUrlsRequest: UploadUrlsRequest = {
-        name: worldName,
-        description: worldDescription,
+      const uploadUrlsRequest: ItemUploadUrlsRequest = {
+        name: itemName,
+        description: itemDescription,
         thumbnailPath: thumbnailPath,
-        physics: worldConfig.physics,
         contentHash,
         fileSize,
         files: uploadFiles.map((f) => ({
@@ -192,8 +190,8 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         })),
       };
 
-      const response = await client.post<UploadUrlsResponse>(
-        `${WORLD_UPDATE_PATH}/${worldId}/upload-urls`,
+      const response = await client.post<ItemUploadUrlsResponse>(
+        `${ITEM_UPDATE_PATH}/${itemId}/upload-urls`,
         uploadUrlsRequest
       );
 
@@ -203,38 +201,34 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       const alreadyExists = response.data.alreadyExists || false;
 
       if (alreadyExists) {
-        // 既存バージョンの場合：メタデータのみ更新
         spinner.succeed(chalk.yellow(`A version with the same content already exists (v${versionNumber})`));
         console.log(chalk.yellow('📦 File upload skipped'));
 
-        // WorldVersionのメタデータを更新
-        if (worldConfig.title || worldConfig.description || thumbnailPath !== undefined || worldConfig.physics) {
-          spinner = ora('Updating world info...').start();
+        // ItemVersionのメタデータを更新
+        if (itemConfig.title || itemConfig.description || thumbnailPath !== undefined) {
+          spinner = ora('Updating item info...').start();
           try {
-            const updateRequest: UpdateWorldVersionMetadataRequest = {};
-            if (worldConfig.title) {
-              updateRequest.name = worldConfig.title;
+            const updateRequest: UpdateItemVersionMetadataRequest = {};
+            if (itemConfig.title) {
+              updateRequest.name = itemConfig.title;
             }
-            if (worldConfig.description !== undefined) {
-              updateRequest.description = worldConfig.description;
+            if (itemConfig.description !== undefined) {
+              updateRequest.description = itemConfig.description;
             }
             if (thumbnailPath !== undefined) {
               updateRequest.thumbnailPath = thumbnailPath;
             }
-            if (worldConfig.physics) {
-              updateRequest.physics = worldConfig.physics;
-            }
 
-            const updateUrl = `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`;
+            const updateUrl = `${ITEM_UPDATE_PATH}/${itemId}/versions/${versionId}`;
             logVerbose(`PATCH ${updateUrl}`);
             logVerbose(`Request body: ${JSON.stringify(updateRequest, null, 2)}`);
 
-            const updateResponse = await client.patch<UpdateWorldVersionMetadataResponse>(
+            const updateResponse = await client.patch<UpdateItemVersionMetadataResponse>(
               updateUrl,
               updateRequest
             );
 
-            spinner.succeed(chalk.green('✓ World info updated'));
+            spinner.succeed(chalk.green('✓ Item info updated'));
             console.log(chalk.gray(`  Title: ${updateResponse.data.name}`));
             if (updateResponse.data.description) {
               console.log(chalk.gray(`  Description: ${updateResponse.data.description}`));
@@ -244,9 +238,9 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
             }
 
             console.log(chalk.green('\n✅ Done'));
-            return; // 正常終了
+            return;
           } catch (updateError) {
-            spinner.fail(chalk.red('Failed to update world info'));
+            spinner.fail(chalk.red('Failed to update item info'));
             if (axios.isAxiosError(updateError)) {
               if (updateError.response) {
                 console.error(chalk.red(`Status code: ${updateError.response.status}`));
@@ -261,18 +255,16 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
           }
         } else {
           console.log(chalk.yellow('No information to update'));
-          return; // 何もせず終了
+          return;
         }
       }
 
-      // 新規バージョンの場合：通常のアップロードフロー
       spinner.succeed(
         chalk.green(
           `Retrieved ${signedUrls.length} upload URLs (version: ${versionNumber})`
         )
       );
 
-      // デバッグ: 最初のURLを表示
       if (signedUrls.length > 0) {
         logVerbose(`Debug: First URL structure: ${JSON.stringify(signedUrls[0], null, 2)}`);
       }
@@ -334,12 +326,12 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     // 10. アップロード完了通知
     spinner = ora('Notifying upload completion...').start();
     try {
-      const completeRequest: CompleteUploadRequest = {
+      const completeRequest: ItemCompleteUploadRequest = {
         versionId,
       };
 
-      const completeResponse = await client.post<CompleteUploadResponse>(
-        `${WORLD_COMPLETE_PATH}/${worldId}/complete`,
+      const completeResponse = await client.post<ItemCompleteUploadResponse>(
+        `${ITEM_COMPLETE_PATH}/${itemId}/complete`,
         completeRequest
       );
 
@@ -349,7 +341,7 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         )
       );
       logVerbose(`Status: ${completeResponse.data.status}`);
-      logVerbose(`World name: ${completeResponse.data.name}`);
+      logVerbose(`Item name: ${completeResponse.data.name}`);
     } catch (error) {
       spinner.fail(chalk.red('Failed to notify upload completion'));
       if (axios.isAxiosError(error) && error.response) {
@@ -359,17 +351,17 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
     }
 
     // 11. メタデータを保存
-    await saveWorldMetadata(
+    await saveItemMetadata(
       {
-        id: worldId,
+        id: itemId,
         createdAt: existingMetadata?.createdAt || new Date().toISOString(),
         lastUploadedAt: new Date().toISOString(),
       },
       cwd
     );
 
-    console.log(chalk.green(`\n✅ World upload complete: ${uploadFiles.length} files`));
-    logVerbose(`World ID: ${worldId}`);
+    console.log(chalk.green(`\n✅ Item upload complete: ${uploadFiles.length} files`));
+    logVerbose(`Item ID: ${itemId}`);
     if (thumbnailPath) {
       logVerbose(`Thumbnail: ${thumbnailPath}`);
     }
@@ -392,7 +384,6 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 async function calculateContentHash(uploadFiles: UploadFileInfo[]): Promise<string> {
   const hash = crypto.createHash('sha256');
 
-  // ファイルをパスでソートして順序を確定
   const sortedFiles = [...uploadFiles].sort((a, b) =>
     a.remotePath.localeCompare(b.remotePath)
   );
@@ -403,7 +394,7 @@ async function calculateContentHash(uploadFiles: UploadFileInfo[]): Promise<stri
   }
 
   const fullHash = hash.digest('hex');
-  return fullHash.substring(0, 12); // 先頭12文字
+  return fullHash.substring(0, 12);
 }
 
 /**
@@ -438,27 +429,27 @@ function getMimeType(filePath: string): string {
 }
 
 /**
- * インタラクティブにワールドのメタデータを収集
+ * インタラクティブにアイテムのメタデータを収集
  */
-async function collectWorldMetadata(
+async function collectItemMetadata(
   config: { title?: string; description?: string },
   defaultName: string
 ): Promise<{ title: string; description?: string }> {
-  console.log(chalk.blue('\n📝 Enter world information\n'));
+  console.log(chalk.blue('\n📝 Enter item information\n'));
 
   const response = await prompts(
     [
       {
         type: 'text',
         name: 'title',
-        message: 'World title',
+        message: 'Item title',
         initial: config.title || defaultName,
         validate: (value: string) => (value.trim() ? true : 'Title is required'),
       },
       {
         type: 'text',
         name: 'description',
-        message: 'World description (optional)',
+        message: 'Item description (optional)',
         initial: config.description || '',
       },
     ],

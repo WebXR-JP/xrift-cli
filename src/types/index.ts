@@ -8,7 +8,7 @@ export interface PhysicsConfig {
 }
 
 export interface XriftConfig {
-  world: {
+  world?: {
     distDir: string;
     title?: string;
     description?: string;
@@ -17,9 +17,23 @@ export interface XriftConfig {
     ignore?: string[]; // アップロード対象から除外するファイル/ディレクトリのglobパターン
     physics?: PhysicsConfig; // 物理設定
   };
+  item?: {
+    distDir: string; // ビルド成果物のディレクトリ
+    title?: string; // アイテム名
+    description?: string; // 説明
+    thumbnailPath?: string; // サムネイルパス
+    buildCommand?: string; // アップロード前に実行するビルドコマンド
+    ignore?: string[]; // アップロード対象から除外するglobパターン
+  };
 }
 
 export interface WorldMetadata {
+  id: string;
+  createdAt: string;
+  lastUploadedAt: string;
+}
+
+export interface ItemMetadata {
   id: string;
   createdAt: string;
   lastUploadedAt: string;
@@ -141,4 +155,77 @@ export interface ExchangeTokenResponse {
     email: string;
     displayName: string;
   };
+}
+
+// Item types
+
+export interface CreateItemRequest {
+  // 空のリクエストボディ
+}
+
+export interface CreateItemResponse {
+  id: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ItemUploadUrlsRequest {
+  name: string;
+  description?: string;
+  thumbnailPath?: string;
+  contentHash: string;
+  fileSize: number;
+  files: Array<{
+    path: string;
+    contentType: string;
+  }>;
+}
+
+export interface ItemUploadUrlsResponse {
+  uploadUrls: SignedUrlResponse[];
+  versionId: string;
+  contentHash: string;
+  versionNumber: number;
+  alreadyExists?: boolean;
+}
+
+export interface ItemCompleteUploadRequest {
+  versionId: string;
+}
+
+export interface ItemCompleteUploadResponse {
+  versionId: string;
+  itemId: string;
+  name: string;
+  description?: string;
+  contentHash: string;
+  fileSize: number;
+  status: string;
+  versionNumber: number;
+  owner: {
+    id: string;
+    displayName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateItemVersionMetadataRequest {
+  name?: string;
+  description?: string | null;
+  thumbnailPath?: string | null;
+}
+
+export interface UpdateItemVersionMetadataResponse {
+  id: string;
+  itemId: string;
+  name: string;
+  description?: string;
+  thumbnailPath?: string;
+  contentHash: string;
+  fileSize: string;
+  status: string;
+  versionNumber: number;
+  updatedAt: string;
 }

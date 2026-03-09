@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { minimatch } from 'minimatch';
-import { PROJECT_CONFIG_FILE, PROJECT_META_DIR, WORLD_META_FILE } from './constants.js';
-import type { XriftConfig, WorldMetadata } from '../types/index.js';
+import { PROJECT_CONFIG_FILE, PROJECT_META_DIR, WORLD_META_FILE, ITEM_META_FILE } from './constants.js';
+import type { XriftConfig, WorldMetadata, ItemMetadata } from '../types/index.js';
 
-export type ProjectType = 'world'; // 将来: | 'item'
+export type ProjectType = 'world' | 'item';
 
 /**
  * xrift.json を読み込み、トップレベルキーからプロジェクトタイプを判定
@@ -14,6 +14,7 @@ export async function detectProjectType(cwd: string = process.cwd()): Promise<Pr
   const data = await fs.readFile(configPath, 'utf-8');
   const config = JSON.parse(data);
   if (config.world) return 'world';
+  if (config.item) return 'item';
   throw new Error('No recognized project type found in xrift.json');
 }
 
@@ -27,9 +28,17 @@ export async function loadProjectConfig(cwd: string = process.cwd()): Promise<Xr
     const data = await fs.readFile(configPath, 'utf-8');
     const config = JSON.parse(data) as XriftConfig;
 
-    // バリデーション
-    if (!config.world?.distDir) {
+    // バリデーション（worldまたはitemのいずれかが必要）
+    if (!config.world && !config.item) {
+      throw new Error('world or item must be configured in xrift.json');
+    }
+
+    if (config.world && !config.world.distDir) {
       throw new Error('world.distDir is not configured in xrift.json');
+    }
+
+    if (config.item && !config.item.distDir) {
+      throw new Error('item.distDir is not configured in xrift.json');
     }
 
     return config;
@@ -122,6 +131,38 @@ export async function scanDirectory(
 
   await scan(dirPath);
   return files;
+}
+
+/**
+ * アイテムメタデータを読み込み
+ */
+export async function loadItemMetadata(
+  cwd: string = process.cwd()
+): Promise<ItemMetadata | null> {
+  const metaPath = path.join(cwd, PROJECT_META_DIR, ITEM_META_FILE);
+
+  try {
+    const data = await fs.readFile(metaPath, 'utf-8');
+    return JSON.parse(data) as ItemMetadata;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * アイテムメタデータを保存
+ */
+export async function saveItemMetadata(
+  metadata: ItemMetadata,
+  cwd: string = process.cwd()
+): Promise<void> {
+  await ensureMetaDir(cwd);
+  const metaPath = path.join(cwd, PROJECT_META_DIR, ITEM_META_FILE);
+
+  await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
 }
 
 /**
