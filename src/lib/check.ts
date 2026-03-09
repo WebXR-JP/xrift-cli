@@ -51,16 +51,23 @@ export async function checkWorld(
     // 1. 設定読み込み
     const spinner = !options.json ? ora('Loading config...').start() : null;
     const config = await loadProjectConfig(cwd);
-    const distDir = path.resolve(cwd, config.world.distDir);
-    spinner?.succeed(chalk.green(`Config loaded: distDir=${config.world.distDir}`));
+
+    if (!config.world) {
+      spinner?.fail('No world config found in xrift.json');
+      throw new Error('world is not configured in xrift.json');
+    }
+
+    const worldConfig = config.world;
+    const distDir = path.resolve(cwd, worldConfig.distDir);
+    spinner?.succeed(chalk.green(`Config loaded: distDir=${worldConfig.distDir}`));
 
     // 2. ビルドコマンド実行
-    if (options.build && config.world.buildCommand) {
+    if (options.build && worldConfig.buildCommand) {
       if (!options.json) {
-        console.log(chalk.blue(`\n🔨 Running build command: ${config.world.buildCommand}\n`));
+        console.log(chalk.blue(`\n🔨 Running build command: ${worldConfig.buildCommand}\n`));
       }
       const { execSync } = await import('node:child_process');
-      execSync(config.world.buildCommand, { cwd, stdio: options.json ? 'ignore' : 'inherit' });
+      execSync(worldConfig.buildCommand, { cwd, stdio: options.json ? 'ignore' : 'inherit' });
       if (!options.json) {
         console.log(chalk.green('\n✓ Build completed\n'));
       }
@@ -71,7 +78,7 @@ export async function checkWorld(
 
     // 4. JSファイルをスキャン
     const scanSpinner = !options.json ? ora('Scanning files...').start() : null;
-    const allFiles = await scanDirectory(distDir, config.world.ignore);
+    const allFiles = await scanDirectory(distDir, worldConfig.ignore);
     const jsFiles = allFiles.filter((f) => /\.(js|mjs)$/.test(f));
 
     if (jsFiles.length === 0) {
