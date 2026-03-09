@@ -160,20 +160,21 @@ export interface ExchangeTokenResponse {
 // Item types
 
 export interface CreateItemRequest {
-  // 空のリクエストボディ
+  name: string;
+  description?: string;
 }
 
 export interface CreateItemResponse {
   id: string;
+  name: string;
+  description?: string;
   ownerId: string;
+  status: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ItemUploadUrlsRequest {
-  name: string;
-  description?: string;
-  thumbnailPath?: string;
   contentHash: string;
   fileSize: number;
   files: Array<{
@@ -183,49 +184,11 @@ export interface ItemUploadUrlsRequest {
 }
 
 export interface ItemUploadUrlsResponse {
-  uploadUrls: SignedUrlResponse[];
-  versionId: string;
-  contentHash: string;
-  versionNumber: number;
-  alreadyExists?: boolean;
-}
-
-export interface ItemCompleteUploadRequest {
-  versionId: string;
-}
-
-export interface ItemCompleteUploadResponse {
-  versionId: string;
   itemId: string;
-  name: string;
-  description?: string;
-  contentHash: string;
-  fileSize: number;
-  status: string;
-  versionNumber: number;
-  owner: {
-    id: string;
-    displayName: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UpdateItemVersionMetadataRequest {
-  name?: string;
-  description?: string | null;
-  thumbnailPath?: string | null;
-}
-
-export interface UpdateItemVersionMetadataResponse {
-  id: string;
-  itemId: string;
-  name: string;
-  description?: string;
-  thumbnailPath?: string;
-  contentHash: string;
-  fileSize: string;
-  status: string;
-  versionNumber: number;
-  updatedAt: string;
+  uploadUrls: Array<{
+    path: string;
+    uploadUrl: string;
+    publicUrl: string;
+    expiresAt: string;
+  }>;
 }
