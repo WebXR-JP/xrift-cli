@@ -33,5 +33,6 @@ export const WORLD_UPLOAD_URL_PATH = '/api/public/v1/worlds';
 export const WORLD_COMPLETE_PATH = '/api/public/v1/worlds'; // :id/complete をつけて使用
 
 // Item API endpoints
-export const ITEM_CREATE_PATH = '/api/items';
-export const ITEM_BASE_PATH = '/api/items'; // :itemId/upload-urls, :itemId/complete をつけて使用
+export const ITEM_CREATE_PATH = '/api/public/v1/items';
+export const ITEM_UPDATE_PATH = '/api/public/v1/items';
+export const ITEM_COMPLETE_PATH = '/api/public/v1/items'; // :id/complete をつけて使用

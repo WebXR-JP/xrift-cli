@@ -14,7 +14,7 @@ import {
   scanDirectory,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
-import { ITEM_CREATE_PATH, ITEM_BASE_PATH } from './constants.js';
+import { ITEM_CREATE_PATH, ITEM_UPDATE_PATH, ITEM_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
 import type {
   CreateItemRequest,
@@ -154,7 +154,7 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
       };
 
       const response = await client.post<ItemUploadUrlsResponse>(
-        `${ITEM_BASE_PATH}/${itemId}/upload-urls`,
+        `${ITEM_UPDATE_PATH}/${itemId}/upload-urls`,
         uploadUrlsRequest
       );
 
@@ -213,7 +213,7 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
       // 10. アップロード完了通知
       spinner = ora('Notifying upload completion...').start();
 
-      await client.post(`${ITEM_BASE_PATH}/${itemId}/complete`);
+      await client.post(`${ITEM_COMPLETE_PATH}/${itemId}/complete`);
 
       spinner.succeed(chalk.green('Upload completed'));
     } catch (error) {
