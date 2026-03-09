@@ -211,27 +211,6 @@ export interface ItemCompleteUploadResponse {
   updatedAt: string;
 }
 
-export interface ItemThumbnailUploadUrlResponse {
-  uploadUrl: string;
-  expiresAt: string;
-}
-
-export interface ItemListResponse {
-  items: ItemDetailResponse[];
-}
-
-export interface ItemDetailResponse {
-  id: string;
-  name: string;
-  description?: string;
-  ownerId: string;
-  status: string;
-  thumbnailUrl?: string;
-  fileUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface UpdateItemVersionMetadataRequest {
   name?: string;
   description?: string | null;

@@ -14,7 +14,7 @@ import {
   scanDirectory,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
-import { ITEM_CREATE_PATH, ITEM_UPDATE_PATH, ITEM_COMPLETE_PATH, ITEM_LIST_PATH } from './constants.js';
+import { ITEM_CREATE_PATH, ITEM_UPDATE_PATH, ITEM_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
 import type {
   CreateItemResponse,
@@ -27,9 +27,6 @@ import type {
   ItemCompleteUploadResponse,
   UpdateItemVersionMetadataRequest,
   UpdateItemVersionMetadataResponse,
-  ItemThumbnailUploadUrlResponse,
-  ItemListResponse,
-  ItemDetailResponse,
 } from '../types/index.js';
 
 /**
@@ -371,193 +368,6 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
   } catch (error) {
     if (spinner) {
       spinner.fail(chalk.red('An error occurred'));
-    }
-
-    if (error instanceof Error) {
-      console.error(chalk.red(`\n❌ ${error.message}`));
-    }
-
-    throw error;
-  }
-}
-
-/**
- * アイテム一覧を取得
- */
-export async function listItems(): Promise<void> {
-  let spinner: Ora | undefined;
-
-  try {
-    spinner = ora('Fetching items...').start();
-    const client = await getAuthenticatedClient();
-
-    const response = await client.get<ItemListResponse>(ITEM_LIST_PATH);
-    const items = response.data.items;
-    spinner.stop();
-
-    if (items.length === 0) {
-      console.log(chalk.yellow('No items found'));
-      return;
-    }
-
-    console.log(chalk.blue(`📦 Items (${items.length})\n`));
-
-    for (const item of items) {
-      console.log(chalk.white.bold(`  ${item.name}`));
-      console.log(chalk.gray(`    ID: ${item.id}`));
-      if (item.description) {
-        console.log(chalk.gray(`    Description: ${item.description}`));
-      }
-      console.log(chalk.gray(`    Status: ${item.status}`));
-      console.log(chalk.gray(`    Created: ${item.createdAt}`));
-      console.log('');
-    }
-  } catch (error) {
-    if (spinner) {
-      spinner.fail(chalk.red('Failed to fetch items'));
-    }
-
-    if (error instanceof Error) {
-      console.error(chalk.red(`\n❌ ${error.message}`));
-    }
-
-    throw error;
-  }
-}
-
-/**
- * アイテム詳細を取得
- */
-export async function getItemInfo(itemId: string): Promise<void> {
-  let spinner: Ora | undefined;
-
-  try {
-    spinner = ora('Fetching item info...').start();
-    const client = await getAuthenticatedClient();
-
-    const response = await client.get<ItemDetailResponse>(`${ITEM_LIST_PATH}/${itemId}`);
-    const item = response.data;
-    spinner.stop();
-
-    console.log(chalk.blue(`📦 Item Details\n`));
-    console.log(chalk.white.bold(`  ${item.name}`));
-    console.log(chalk.gray(`  ID: ${item.id}`));
-    if (item.description) {
-      console.log(chalk.gray(`  Description: ${item.description}`));
-    }
-    console.log(chalk.gray(`  Status: ${item.status}`));
-    if (item.thumbnailUrl) {
-      console.log(chalk.gray(`  Thumbnail: ${item.thumbnailUrl}`));
-    }
-    if (item.fileUrl) {
-      console.log(chalk.gray(`  File: ${item.fileUrl}`));
-    }
-    console.log(chalk.gray(`  Created: ${item.createdAt}`));
-    console.log(chalk.gray(`  Updated: ${item.updatedAt}`));
-  } catch (error) {
-    if (spinner) {
-      spinner.fail(chalk.red('Failed to fetch item info'));
-    }
-
-    if (error instanceof Error) {
-      console.error(chalk.red(`\n❌ ${error.message}`));
-    }
-
-    throw error;
-  }
-}
-
-/**
- * アイテムサムネイルをアップロード
- */
-export async function uploadItemThumbnail(itemId: string, imagePath: string): Promise<void> {
-  console.log(chalk.blue('🖼️  Setting item thumbnail\n'));
-
-  let spinner: Ora | undefined;
-
-  try {
-    spinner = ora('Checking image file...').start();
-    const absolutePath = path.resolve(imagePath);
-    const stat = await fs.stat(absolutePath);
-
-    if (!stat.isFile()) {
-      spinner.fail(chalk.red('Specified path is not a file'));
-      throw new Error(`Not a file: ${absolutePath}`);
-    }
-
-    const ext = path.extname(absolutePath).toLowerCase();
-    const allowedExts = ['.png', '.jpg', '.jpeg', '.webp'];
-    if (!allowedExts.includes(ext)) {
-      spinner.fail(chalk.red(`Unsupported image format: ${ext}`));
-      throw new Error(`Supported formats: ${allowedExts.join(', ')}`);
-    }
-
-    const fileSize = stat.size;
-    const fileName = path.basename(absolutePath);
-    spinner.succeed(chalk.green(`Image: ${fileName} (${fileSize} bytes)`));
-
-    spinner = ora('Verifying credentials...').start();
-    const client = await getAuthenticatedClient();
-    spinner.succeed(chalk.green('Credentials verified'));
-
-    spinner = ora('Fetching thumbnail upload URL...').start();
-
-    const response = await client.post<ItemThumbnailUploadUrlResponse>(
-      `${ITEM_LIST_PATH}/${itemId}/thumbnail-upload-url`
-    );
-
-    const uploadUrl = response.data.uploadUrl;
-    spinner.succeed(chalk.green('Thumbnail upload URL retrieved'));
-    logVerbose(`Thumbnail URL expires at: ${response.data.expiresAt}`);
-
-    spinner = ora('Uploading thumbnail...').start();
-
-    const fileBuffer = await fs.readFile(absolutePath);
-
-    await axios.put(uploadUrl, fileBuffer, {
-      headers: {
-        'Content-Type': getMimeType(absolutePath),
-        'Content-Length': fileSize,
-      },
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
-
-    spinner.succeed(chalk.green('Thumbnail uploaded'));
-
-    spinner = ora('Confirming thumbnail...').start();
-    await client.post(`${ITEM_LIST_PATH}/${itemId}/confirm-thumbnail`);
-    spinner.succeed(chalk.green('Thumbnail set'));
-
-    console.log(chalk.green(`\n✅ Thumbnail updated for item (ID: ${itemId})`));
-  } catch (error) {
-    if (spinner) {
-      spinner.fail(chalk.red('An error occurred'));
-    }
-
-    if (error instanceof Error) {
-      console.error(chalk.red(`\n❌ ${error.message}`));
-    }
-
-    throw error;
-  }
-}
-
-/**
- * アイテムを削除
- */
-export async function deleteItem(itemId: string): Promise<void> {
-  let spinner: Ora | undefined;
-
-  try {
-    spinner = ora('Deleting item...').start();
-    const client = await getAuthenticatedClient();
-
-    await client.delete(`${ITEM_LIST_PATH}/${itemId}`);
-    spinner.succeed(chalk.green(`Item deleted (ID: ${itemId})`));
-  } catch (error) {
-    if (spinner) {
-      spinner.fail(chalk.red('Failed to delete item'));
     }
 
     if (error instanceof Error) {
