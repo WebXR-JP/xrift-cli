@@ -104,9 +104,6 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
       logVerbose(`\nUpdating existing item (ID: ${existingMetadata.id})`);
       itemId = existingMetadata.id;
     } else {
-      // 新規アイテム作成
-      spinner = ora('Creating new item...').start();
-
       // メタデータを収集
       const metadata = await collectItemMetadata(
         {
@@ -115,6 +112,9 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
         },
         path.basename(cwd)
       );
+
+      // 新規アイテム作成
+      spinner = ora('Creating new item...').start();
 
       try {
         const createRequest: CreateItemRequest = {
