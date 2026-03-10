@@ -137,6 +137,17 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
       worldName = worldConfig.title || path.basename(cwd);
       worldDescription = worldConfig.description;
     } else {
+      // 新規作成時はメタデータを収集
+      const metadata = await collectWorldMetadata(
+        {
+          title: worldConfig.title,
+          description: worldConfig.description,
+        },
+        path.basename(cwd)
+      );
+      worldName = metadata.title;
+      worldDescription = metadata.description;
+
       // 新規ワールド作成（Phase 3-2: 空のリクエストボディ）
       spinner = ora('Creating new world...').start();
 
@@ -151,17 +162,6 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
         spinner.fail(chalk.red('Failed to create world'));
         throw error;
       }
-
-      // 新規作成時はメタデータを収集
-      const metadata = await collectWorldMetadata(
-        {
-          title: worldConfig.title,
-          description: worldConfig.description,
-        },
-        path.basename(cwd)
-      );
-      worldName = metadata.title;
-      worldDescription = metadata.description;
     }
 
     // 7. contentHashとfileSizeを計算
