@@ -6,7 +6,7 @@ import {
   CodeSecurityService,
   determineFileContext,
 } from '@xrift/code-security';
-import type { ValidateCodeResponse, Violation } from '@xrift/code-security';
+import type { ValidateCodeResponse, Violation, WorldPermissions } from '@xrift/code-security';
 import {
   loadProjectConfig,
   validateDistDir,
@@ -92,7 +92,7 @@ export async function checkWorld(
     scanSpinner?.succeed(chalk.green(`Found ${jsFiles.length} JS files`));
 
     // 5. セキュリティチェック実行
-    const checkResult = await runSecurityCheck(jsFiles, distDir);
+    const checkResult = await runSecurityCheck(jsFiles, distDir, worldConfig.permissions);
 
     // 6. 結果表示
     if (options.json) {
@@ -124,10 +124,12 @@ export async function checkWorld(
  */
 export async function runSecurityCheck(
   files: string[],
-  distDir: string
+  distDir: string,
+  worldPermissions?: WorldPermissions
 ): Promise<SecurityCheckResult> {
   const service = new CodeSecurityService();
   const results: FileCheckResult[] = [];
+  const allPermissionWarnings: string[] = [];
 
   // package.json を読み込み（存在しない場合は空の dependencies を使用）
   let packageJsonDeps: Record<string, string> = {};
@@ -149,7 +151,13 @@ export async function runSecurityCheck(
       code,
       packageJson: { dependencies: packageJsonDeps },
       fileContext,
+      worldPermissions,
     });
+
+    // permissionWarnings を収集
+    if (response.permissionWarnings && response.permissionWarnings.length > 0) {
+      allPermissionWarnings.push(...response.permissionWarnings);
+    }
 
     // fileContext による severity 調整後の violations ベースで判定
     // securityScore は生シグナルから計算されるため fileContext を反映しない
@@ -161,6 +169,16 @@ export async function runSecurityCheck(
       verdict,
       violations: response.violations,
     });
+  }
+
+  // permissionWarnings をコンソールに表示
+  if (allPermissionWarnings.length > 0) {
+    const uniqueWarnings = [...new Set(allPermissionWarnings)];
+    console.log(chalk.yellow('\n⚠ Permission warnings:'));
+    for (const warning of uniqueWarnings) {
+      console.log(chalk.yellow(`  - ${warning}`));
+    }
+    console.log('');
   }
 
   return {

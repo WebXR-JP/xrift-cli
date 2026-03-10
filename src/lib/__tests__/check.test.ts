@@ -11,7 +11,7 @@ import {
   CodeSecurityService,
   determineFileContext,
 } from '@xrift/code-security';
-import type { ValidateCodeResponse } from '@xrift/code-security';
+import type { ValidateCodeResponse, WorldPermissions } from '@xrift/code-security';
 
 /**
  * CLI と同じ判定ロジック: violations ベースで verdict を決定
@@ -170,6 +170,176 @@ describe('check - セキュリティチェックのコアロジック', () => {
 
       const dangerousResult = results.find((r) => r.file === 'dangerous.js');
       expect(dangerousResult?.score).toBeGreaterThan(0);
+    });
+
+    it('__federation_fn_import を参照するチャンクは厳格にチェックされる', async () => {
+      // React.lazy(() => import('./Inner')) で分離されたチャンクを想定
+      // federation 経由のチャンクは importShared で共有ライブラリを取得する
+      const dynamicChunk = path.join(distDir, 'Inner-abc123.js');
+      const federationCode = [
+        'import { importShared } from "./__federation_fn_import-xxx.js";',
+        'const code = "alert(1)";',
+        'eval(code);',
+      ].join('\n');
+      await fs.writeFile(dynamicChunk, federationCode);
+
+      const code = await fs.readFile(dynamicChunk, 'utf-8');
+      const relativePath = path.relative(distDir, dynamicChunk);
+
+      // CLI と同じ判定: __federation_fn_import を含む → isBundledDependency: false
+      const isFederationChunk = code.includes('__federation_fn_import');
+      expect(isFederationChunk).toBe(true);
+
+      const fileContext = {
+        ...determineFileContext(relativePath),
+        isBundledDependency: false,
+      };
+
+      const service = new CodeSecurityService();
+      const result = service.validate({
+        code,
+        packageJson: { dependencies: {} },
+        fileContext,
+      });
+
+      const verdict = determineVerdict(result);
+      expect(verdict).toBe('REJECT');
+      expect(result.violations.critical.length).toBeGreaterThan(0);
+    });
+
+    it('__federation_fn_import を参照しない純粋なライブラリチャンクは緩和される', async () => {
+      const vendorChunk = path.join(distDir, 'vendor-lib.js');
+      await fs.writeFile(vendorChunk, 'Object.prototype.foo = 1;');
+
+      const code = await fs.readFile(vendorChunk, 'utf-8');
+      const relativePath = path.relative(distDir, vendorChunk);
+
+      // federation を参照しない → isBundledDependency のまま
+      const isFederationChunk = code.includes('__federation_fn_import');
+      expect(isFederationChunk).toBe(false);
+
+      const fileContext = determineFileContext(relativePath);
+      expect(fileContext.isBundledDependency).toBe(true);
+
+      const service = new CodeSecurityService();
+      const result = service.validate({
+        code,
+        packageJson: { dependencies: {} },
+        fileContext,
+      });
+
+      const verdict = determineVerdict(result);
+      // 技術的違反は抑制されるので REJECT にはならない
+      expect(verdict).not.toBe('REJECT');
+    });
+
+    it('worldPermissions の allowedCodeRules で許可されたルールの違反が抑制される', async () => {
+      const testFile = path.join(distDir, '__federation_expose_World-test.js');
+      // String.fromCharCode は no-obfuscation ルールで検出される
+      const obfuscatedCode = [
+        'const s = String.fromCharCode(72, 101, 108, 108, 111);',
+        'console.log(s);',
+      ].join('\n');
+      await fs.writeFile(testFile, obfuscatedCode);
+
+      const code = await fs.readFile(testFile, 'utf-8');
+      const relativePath = path.relative(distDir, testFile);
+      const fileContext = determineFileContext(relativePath);
+
+      const service = new CodeSecurityService();
+
+      // worldPermissions なしでチェック → 違反が検出される
+      const resultWithout = service.validate({
+        code,
+        packageJson: { dependencies: {} },
+        fileContext,
+      });
+      const hasObfuscationViolation = [
+        ...resultWithout.violations.critical,
+        ...resultWithout.violations.warnings,
+      ].some((v) => v.rule === 'no-obfuscation');
+
+      // no-obfuscation 違反が検出された場合のみ、permissions での抑制をテスト
+      if (hasObfuscationViolation) {
+        const permissions: WorldPermissions = {
+          allowedCodeRules: ['no-obfuscation'],
+        };
+
+        const resultWith = service.validate({
+          code,
+          packageJson: { dependencies: {} },
+          fileContext,
+          worldPermissions: permissions,
+        });
+
+        const hasObfuscationAfter = [
+          ...resultWith.violations.critical,
+          ...resultWith.violations.warnings,
+        ].some((v) => v.rule === 'no-obfuscation');
+        expect(hasObfuscationAfter).toBe(false);
+      }
+    });
+
+    it('worldPermissions の allowedDomains でネットワーク違反が抑制される', async () => {
+      const testFile = path.join(distDir, '__federation_expose_World-net.js');
+      const networkCode = [
+        'fetch("https://api.example.com/data");',
+      ].join('\n');
+      await fs.writeFile(testFile, networkCode);
+
+      const code = await fs.readFile(testFile, 'utf-8');
+      const relativePath = path.relative(distDir, testFile);
+      const fileContext = determineFileContext(relativePath);
+
+      const service = new CodeSecurityService();
+
+      // worldPermissions なしでチェック
+      const resultWithout = service.validate({
+        code,
+        packageJson: { dependencies: {} },
+        fileContext,
+      });
+      const hasNetworkViolation = [
+        ...resultWithout.violations.critical,
+        ...resultWithout.violations.warnings,
+      ].some((v) => v.rule === 'no-network-without-permission');
+
+      // ネットワーク違反が検出された場合のみ、allowedDomains での抑制をテスト
+      if (hasNetworkViolation) {
+        const permissions: WorldPermissions = {
+          allowedDomains: ['api.example.com'],
+        };
+
+        const resultWith = service.validate({
+          code,
+          packageJson: { dependencies: {} },
+          fileContext,
+          worldPermissions: permissions,
+        });
+
+        const hasNetworkAfter = [
+          ...resultWith.violations.critical,
+          ...resultWith.violations.warnings,
+        ].some((v) => v.rule === 'no-network-without-permission');
+        expect(hasNetworkAfter).toBe(false);
+      }
+    });
+
+    it('worldPermissions を渡しても NEVER_ALLOWABLE_RULES の違反は抑制されない', () => {
+      const service = new CodeSecurityService();
+      const permissions: WorldPermissions = {
+        allowedCodeRules: ['no-eval'], // no-eval は NEVER_ALLOWABLE
+      };
+
+      const result = service.validate({
+        code: 'eval("alert(1)")',
+        packageJson: { dependencies: {} },
+        worldPermissions: permissions,
+      });
+
+      // no-eval は never-allowable なので抑制されない
+      const hasEval = result.violations.critical.some((v) => v.rule === 'no-eval');
+      expect(hasEval).toBe(true);
     });
 
     it('.mjs ファイルもチェックできる', async () => {

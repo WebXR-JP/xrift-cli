@@ -89,7 +89,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
       spinner = ora('Running security check...').start();
       const jsFiles = files.filter((f) => /\.(js|mjs)$/.test(f));
       if (jsFiles.length > 0) {
-        const checkResult = await runSecurityCheck(jsFiles, distDir);
+        const checkResult = await runSecurityCheck(jsFiles, distDir, worldConfig.permissions);
         if (checkResult.hasReject) {
           spinner.fail('Security check failed');
           printResults(checkResult);
@@ -207,6 +207,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
         description: worldDescription,
         thumbnailPath: thumbnailPath,
         physics: worldConfig.physics,
+        permissions: worldConfig.permissions,
         contentHash,
         fileSize,
         files: uploadFiles.map((f) => ({
