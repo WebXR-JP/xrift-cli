@@ -94,6 +94,11 @@ export async function saveWorldMetadata(
   await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
 }
 
+/** プラットフォーム側で提供される共有ライブラリのデフォルト除外パターン */
+const DEFAULT_IGNORE_PATTERNS = [
+  '__federation_shared_*.js',
+];
+
 /**
  * ディレクトリ内のファイルを再帰的にスキャン
  * @param dirPath スキャンするディレクトリのパス
@@ -103,6 +108,7 @@ export async function scanDirectory(
   dirPath: string,
   ignorePatterns: string[] = []
 ): Promise<string[]> {
+  const allPatterns = [...DEFAULT_IGNORE_PATTERNS, ...ignorePatterns];
   const files: string[] = [];
 
   async function scan(currentPath: string) {
@@ -113,7 +119,7 @@ export async function scanDirectory(
       const relativePath = path.relative(dirPath, fullPath);
 
       // ignoreパターンに一致するかチェック
-      const shouldIgnore = ignorePatterns.some((pattern) =>
+      const shouldIgnore = allPatterns.some((pattern) =>
         minimatch(relativePath, pattern, { dot: true })
       );
 
