@@ -122,9 +122,9 @@ describe('check - セキュリティチェックのコアロジック', () => {
       expect(ctx.isUserCode).toBe(true);
     });
 
-    it('__federation_shared_ は共有ライブラリと判定', () => {
+    it('__federation_shared_ はバンドル依存と判定', () => {
       const ctx = determineFileContext('__federation_shared_react.js');
-      expect(ctx.isSharedLibrary).toBe(true);
+      expect(ctx.isBundledDependency).toBe(true);
     });
 
     it('通常のファイルはバンドル依存と判定', () => {
