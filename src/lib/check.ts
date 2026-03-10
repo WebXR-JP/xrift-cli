@@ -143,7 +143,14 @@ export async function runSecurityCheck(
   for (const filePath of files) {
     const code = await fs.readFile(filePath, 'utf-8');
     const relativePath = path.relative(distDir, filePath);
-    const fileContext = determineFileContext(relativePath);
+    // __federation_fn_import を参照するチャンクは federation 経由のユーザーコード依存ツリー
+    // → isBundledDependency を無効化して厳格にチェック (動的 import によるバイパス防止)
+    // それ以外の純粋なライブラリチャンクは従来通り緩和
+    const defaultContext = determineFileContext(relativePath);
+    const isFederationChunk = code.includes('__federation_fn_import');
+    const fileContext = isFederationChunk
+      ? { ...defaultContext, isBundledDependency: false }
+      : defaultContext;
 
     const response: ValidateCodeResponse = service.validate({
       code,

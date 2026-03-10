@@ -172,6 +172,67 @@ describe('check - セキュリティチェックのコアロジック', () => {
       expect(dangerousResult?.score).toBeGreaterThan(0);
     });
 
+    it('__federation_fn_import を参照するチャンクは厳格にチェックされる', async () => {
+      // React.lazy(() => import('./Inner')) で分離されたチャンクを想定
+      // federation 経由のチャンクは importShared で共有ライブラリを取得する
+      const dynamicChunk = path.join(distDir, 'Inner-abc123.js');
+      const federationCode = [
+        'import { importShared } from "./__federation_fn_import-xxx.js";',
+        'const code = "alert(1)";',
+        'eval(code);',
+      ].join('\n');
+      await fs.writeFile(dynamicChunk, federationCode);
+
+      const code = await fs.readFile(dynamicChunk, 'utf-8');
+      const relativePath = path.relative(distDir, dynamicChunk);
+
+      // CLI と同じ判定: __federation_fn_import を含む → isBundledDependency: false
+      const isFederationChunk = code.includes('__federation_fn_import');
+      expect(isFederationChunk).toBe(true);
+
+      const fileContext = {
+        ...determineFileContext(relativePath),
+        isBundledDependency: false,
+      };
+
+      const service = new CodeSecurityService();
+      const result = service.validate({
+        code,
+        packageJson: { dependencies: {} },
+        fileContext,
+      });
+
+      const verdict = determineVerdict(result);
+      expect(verdict).toBe('REJECT');
+      expect(result.violations.critical.length).toBeGreaterThan(0);
+    });
+
+    it('__federation_fn_import を参照しない純粋なライブラリチャンクは緩和される', async () => {
+      const vendorChunk = path.join(distDir, 'vendor-lib.js');
+      await fs.writeFile(vendorChunk, 'Object.prototype.foo = 1;');
+
+      const code = await fs.readFile(vendorChunk, 'utf-8');
+      const relativePath = path.relative(distDir, vendorChunk);
+
+      // federation を参照しない → isBundledDependency のまま
+      const isFederationChunk = code.includes('__federation_fn_import');
+      expect(isFederationChunk).toBe(false);
+
+      const fileContext = determineFileContext(relativePath);
+      expect(fileContext.isBundledDependency).toBe(true);
+
+      const service = new CodeSecurityService();
+      const result = service.validate({
+        code,
+        packageJson: { dependencies: {} },
+        fileContext,
+      });
+
+      const verdict = determineVerdict(result);
+      // 技術的違反は抑制されるので REJECT にはならない
+      expect(verdict).not.toBe('REJECT');
+    });
+
     it('.mjs ファイルもチェックできる', async () => {
       const mjsFile = path.join(distDir, 'module.mjs');
       await fs.writeFile(mjsFile, 'export const value = 42;');
