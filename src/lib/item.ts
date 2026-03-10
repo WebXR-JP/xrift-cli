@@ -16,6 +16,7 @@ import {
 import { getAuthenticatedClient } from './api.js';
 import { ITEM_CREATE_PATH, ITEM_UPDATE_PATH, ITEM_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
+import { runSecurityCheck, printResults } from './check.js';
 import type {
   CreateItemRequest,
   CreateItemResponse,
@@ -27,7 +28,7 @@ import type {
 /**
  * アイテムをアップロード
  */
-export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
+export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolean): Promise<void> {
   console.log(chalk.blue('📦 Starting item upload\n'));
 
   let spinner: Ora | undefined;
@@ -77,6 +78,28 @@ export async function uploadItem(cwd: string = process.cwd()): Promise<void> {
     }
 
     spinner.succeed(chalk.green(`Found ${files.length} files`));
+
+    // 3.5. セキュリティチェック
+    if (!skipCheck) {
+      spinner = ora('Running security check...').start();
+      const jsFiles = files.filter((f) => /\.(js|mjs)$/.test(f));
+      if (jsFiles.length > 0) {
+        const checkResult = await runSecurityCheck(jsFiles, distDir);
+        if (checkResult.hasReject) {
+          spinner.fail('Security check failed');
+          printResults(checkResult);
+          throw new Error('Upload aborted due to security violations');
+        }
+        if (checkResult.hasReview) {
+          spinner.warn('Security check has warnings');
+          printResults(checkResult);
+        } else {
+          spinner.succeed('Security check passed');
+        }
+      } else {
+        spinner.succeed('No JS files to check');
+      }
+    }
 
     // 4. ファイル情報を準備
     const uploadFiles: UploadFileInfo[] = await Promise.all(

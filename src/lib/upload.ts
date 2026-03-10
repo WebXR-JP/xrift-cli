@@ -16,6 +16,7 @@ import {
 import { getAuthenticatedClient } from './api.js';
 import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
+import { runSecurityCheck, printResults } from './check.js';
 import type {
   CreateWorldResponse,
   CreateWorldRequest,
@@ -32,7 +33,7 @@ import type {
 /**
  * ワールドをアップロード
  */
-export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
+export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boolean): Promise<void> {
   console.log(chalk.blue('🌍 Starting world upload\n'));
 
   let spinner: Ora | undefined;
@@ -83,7 +84,29 @@ export async function uploadWorld(cwd: string = process.cwd()): Promise<void> {
 
     spinner.succeed(chalk.green(`Found ${files.length} files`));
 
-    // 3.5. サムネイル設定を確認
+    // 3.5. セキュリティチェック
+    if (!skipCheck) {
+      spinner = ora('Running security check...').start();
+      const jsFiles = files.filter((f) => /\.(js|mjs)$/.test(f));
+      if (jsFiles.length > 0) {
+        const checkResult = await runSecurityCheck(jsFiles, distDir);
+        if (checkResult.hasReject) {
+          spinner.fail('Security check failed');
+          printResults(checkResult);
+          throw new Error('Upload aborted due to security violations');
+        }
+        if (checkResult.hasReview) {
+          spinner.warn('Security check has warnings');
+          printResults(checkResult);
+        } else {
+          spinner.succeed('Security check passed');
+        }
+      } else {
+        spinner.succeed('No JS files to check');
+      }
+    }
+
+    // 3.6. サムネイル設定を確認
     let thumbnailPath: string | undefined;
     if (worldConfig.thumbnailPath) {
       const configuredPath = path.join(distDir, worldConfig.thumbnailPath);

@@ -173,7 +173,7 @@ export async function runSecurityCheck(
 /**
  * 結果をコンソールに表示
  */
-function printResults(checkResult: SecurityCheckResult): void {
+export function printResults(checkResult: SecurityCheckResult): void {
   // REVIEW / REJECT のファイルのみ詳細表示
   const issueResults = checkResult.results.filter((r) => r.verdict !== 'APPROVE');
 

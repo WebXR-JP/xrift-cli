@@ -5,14 +5,15 @@ import { detectProjectType } from '../lib/project-config.js';
 
 export const uploadCommand = new Command('upload')
   .description('Upload to XRift')
-  .action(async () => {
+  .option('--skip-check', 'Skip security check before upload')
+  .action(async (options) => {
     // サブコマンド未指定: xrift.json から自動判定
     try {
       const type = await detectProjectType();
       if (type === 'world') {
-        await uploadWorld();
+        await uploadWorld(process.cwd(), options.skipCheck);
       } else if (type === 'item') {
-        await uploadItem();
+        await uploadItem(process.cwd(), options.skipCheck);
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -25,9 +26,10 @@ export const uploadCommand = new Command('upload')
 uploadCommand
   .command('world')
   .description('Upload a world')
-  .action(async () => {
+  .option('--skip-check', 'Skip security check before upload')
+  .action(async (options) => {
     try {
-      await uploadWorld();
+      await uploadWorld(process.cwd(), options.skipCheck);
     } catch (error) {
       if (error instanceof Error) {
         console.error('Error:', error.message);
@@ -39,9 +41,10 @@ uploadCommand
 uploadCommand
   .command('item')
   .description('Upload an item (reads from xrift.json)')
-  .action(async () => {
+  .option('--skip-check', 'Skip security check before upload')
+  .action(async (options) => {
     try {
-      await uploadItem();
+      await uploadItem(process.cwd(), options.skipCheck);
     } catch (error) {
       if (error instanceof Error) {
         console.error('Error:', error.message);
