@@ -208,11 +208,13 @@ export function printResults(checkResult: SecurityCheckResult): void {
 
       for (const v of result.violations.critical) {
         const loc = v.location ? ` (line ${v.location.line})` : '';
-        console.log(chalk.red(`  ✗ ${v.message}${loc}`));
+        const rule = v.rule ? chalk.gray(`[${v.rule}] `) : '';
+        console.log(chalk.red(`  ✗ ${rule}${v.message}${loc}`));
       }
       for (const v of result.violations.warnings) {
         const loc = v.location ? ` (line ${v.location.line})` : '';
-        console.log(chalk.yellow(`  ⚠ ${v.message}${loc}`));
+        const rule = v.rule ? chalk.gray(`[${v.rule}] `) : '';
+        console.log(chalk.yellow(`  ⚠ ${rule}${v.message}${loc}`));
       }
       console.log('');
     }
@@ -255,24 +257,24 @@ export function printResults(checkResult: SecurityCheckResult): void {
     const neverAllowableViolations = [...violatedRules].filter((r) => (NEVER_ALLOWABLE_RULES as readonly string[]).includes(r));
 
     if (allowableViolations.length > 0 || neverAllowableViolations.length > 0) {
-      console.log(chalk.cyan('\n💡 Hint: xrift.json の world.permissions で一部のルールを許可できます:'));
+      console.log(chalk.cyan('\n💡 Hint: Some rules can be allowed via world.permissions in xrift.json:'));
 
       const allowedCodeRulesExample: string[] = [];
 
       for (const rule of allowableViolations) {
         if (rule === 'no-network-without-permission') {
-          console.log(chalk.cyan(`  - "${rule}" → allowedDomains に対象ドメインを追加で許可可能`));
+          console.log(chalk.cyan(`  - "${rule}" → Add target domains to allowedDomains`));
         } else {
-          console.log(chalk.cyan(`  - "${rule}" → allowedCodeRules に追加で許可可能`));
+          console.log(chalk.cyan(`  - "${rule}" → Add to allowedCodeRules to allow`));
           allowedCodeRulesExample.push(rule);
         }
       }
 
       for (const rule of neverAllowableViolations) {
-        console.log(chalk.gray(`  - "${rule}" → このルールは permissions で許可できません`));
+        console.log(chalk.gray(`  - "${rule}" → This rule cannot be allowed via permissions`));
       }
 
-      // 設定例を表示（許可可能なルールがある場合のみ）
+      // Show config example (only when there are allowable rules)
       if (allowableViolations.length > 0) {
         const examplePermissions: Record<string, unknown> = {};
         if (allowedCodeRulesExample.length > 0) {
@@ -283,7 +285,7 @@ export function printResults(checkResult: SecurityCheckResult): void {
         }
 
         const exampleJson = JSON.stringify({ world: { permissions: examplePermissions } }, null, 4);
-        console.log(chalk.cyan('\n  例:'));
+        console.log(chalk.cyan('\n  Example:'));
         for (const line of exampleJson.split('\n')) {
           console.log(chalk.cyan(`  ${line}`));
         }
