@@ -5,6 +5,8 @@ import ora from 'ora';
 import {
   CodeSecurityService,
   determineFileContext,
+  ALLOWABLE_RULES,
+  NEVER_ALLOWABLE_RULES,
 } from '@xrift/code-security';
 import type { ValidateCodeResponse, Violation, WorldPermissions } from '@xrift/code-security';
 import {
@@ -235,6 +237,58 @@ export function printResults(checkResult: SecurityCheckResult): void {
     console.log(chalk.yellow('\n⚠ Some items require review'));
   } else {
     console.log(chalk.green('\n✅ Security check passed'));
+  }
+
+  // ヒント表示: 違反がある場合のみ
+  if (checkResult.hasReject || checkResult.hasReview) {
+    const violatedRules = new Set<string>();
+    for (const result of issueResults) {
+      for (const v of result.violations.critical) {
+        if (v.rule) violatedRules.add(v.rule);
+      }
+      for (const v of result.violations.warnings) {
+        if (v.rule) violatedRules.add(v.rule);
+      }
+    }
+
+    const allowableViolations = [...violatedRules].filter((r) => (ALLOWABLE_RULES as readonly string[]).includes(r));
+    const neverAllowableViolations = [...violatedRules].filter((r) => (NEVER_ALLOWABLE_RULES as readonly string[]).includes(r));
+
+    if (allowableViolations.length > 0 || neverAllowableViolations.length > 0) {
+      console.log(chalk.cyan('\n💡 Hint: xrift.json の world.permissions で一部のルールを許可できます:'));
+
+      const allowedCodeRulesExample: string[] = [];
+
+      for (const rule of allowableViolations) {
+        if (rule === 'no-network-without-permission') {
+          console.log(chalk.cyan(`  - "${rule}" → allowedDomains に対象ドメインを追加で許可可能`));
+        } else {
+          console.log(chalk.cyan(`  - "${rule}" → allowedCodeRules に追加で許可可能`));
+          allowedCodeRulesExample.push(rule);
+        }
+      }
+
+      for (const rule of neverAllowableViolations) {
+        console.log(chalk.gray(`  - "${rule}" → このルールは permissions で許可できません`));
+      }
+
+      // 設定例を表示（許可可能なルールがある場合のみ）
+      if (allowableViolations.length > 0) {
+        const examplePermissions: Record<string, unknown> = {};
+        if (allowedCodeRulesExample.length > 0) {
+          examplePermissions.allowedCodeRules = allowedCodeRulesExample;
+        }
+        if (allowableViolations.includes('no-network-without-permission')) {
+          examplePermissions.allowedDomains = ['api.example.com'];
+        }
+
+        const exampleJson = JSON.stringify({ world: { permissions: examplePermissions } }, null, 4);
+        console.log(chalk.cyan('\n  例:'));
+        for (const line of exampleJson.split('\n')) {
+          console.log(chalk.cyan(`  ${line}`));
+        }
+      }
+    }
   }
 }
 
