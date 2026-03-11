@@ -7,6 +7,11 @@ export interface PhysicsConfig {
   allowInfiniteJump?: boolean;
 }
 
+export interface WorldPermissions {
+  allowedDomains?: string[];
+  allowedCodeRules?: string[];
+}
+
 export interface XriftConfig {
   world?: {
     distDir: string;
@@ -16,6 +21,7 @@ export interface XriftConfig {
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するファイル/ディレクトリのglobパターン
     physics?: PhysicsConfig; // 物理設定
+    permissions?: WorldPermissions; // セキュリティ権限宣言
   };
   item?: {
     distDir: string; // ビルド成果物のディレクトリ
@@ -73,6 +79,7 @@ export interface UploadUrlsRequest {
   description?: string; // 説明（任意）
   thumbnailPath?: string; // サムネイルパス（任意）
   physics?: PhysicsConfig; // 物理設定（任意）
+  permissions?: WorldPermissions; // セキュリティ権限宣言（任意）
   contentHash: string;
   fileSize: number;
   files: Array<{
