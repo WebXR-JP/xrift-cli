@@ -99,6 +99,69 @@ describe('project-config', () => {
       expect(loaded.world!.physics?.allowInfiniteJump).toBe(true);
     });
 
+    it('camera設定を含む設定ファイルを読み込める', async () => {
+      const config: XriftConfig = {
+        world: {
+          distDir: './dist',
+          title: 'Test World',
+          camera: {
+            near: 0.1,
+            far: 1000,
+          },
+        },
+      };
+
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(config, null, 2)
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+      expect(loaded).toEqual(config);
+      expect(loaded.world!.camera?.near).toBe(0.1);
+      expect(loaded.world!.camera?.far).toBe(1000);
+    });
+
+    it('camera設定が部分的に指定されている場合も読み込める（nearのみ）', async () => {
+      const config: XriftConfig = {
+        world: {
+          distDir: './dist',
+          camera: {
+            near: 0.05,
+          },
+        },
+      };
+
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(config, null, 2)
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+      expect(loaded.world!.camera?.near).toBe(0.05);
+      expect(loaded.world!.camera?.far).toBeUndefined();
+    });
+
+    it('camera設定が部分的に指定されている場合も読み込める（farのみ）', async () => {
+      const config: XriftConfig = {
+        world: {
+          distDir: './dist',
+          camera: {
+            far: 5000,
+          },
+        },
+      };
+
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(config, null, 2)
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+      expect(loaded.world!.camera?.near).toBeUndefined();
+      expect(loaded.world!.camera?.far).toBe(5000);
+    });
+
     it('physics設定が部分的に指定されている場合も読み込める', async () => {
       const config: XriftConfig = {
         world: {

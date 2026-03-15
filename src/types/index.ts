@@ -7,6 +7,11 @@ export interface PhysicsConfig {
   allowInfiniteJump?: boolean;
 }
 
+export interface CameraConfig {
+  near?: number;
+  far?: number;
+}
+
 export interface WorldPermissions {
   allowedDomains?: string[];
   allowedCodeRules?: string[];
@@ -21,6 +26,7 @@ export interface XriftConfig {
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するファイル/ディレクトリのglobパターン
     physics?: PhysicsConfig; // 物理設定
+    camera?: CameraConfig; // カメラ設定
     permissions?: WorldPermissions; // セキュリティ権限宣言
   };
   item?: {
@@ -79,6 +85,7 @@ export interface UploadUrlsRequest {
   description?: string; // 説明（任意）
   thumbnailPath?: string; // サムネイルパス（任意）
   physics?: PhysicsConfig; // 物理設定（任意）
+  camera?: CameraConfig; // カメラ設定（任意）
   permissions?: WorldPermissions; // セキュリティ権限宣言（任意）
   contentHash: string;
   fileSize: number;
@@ -127,6 +134,7 @@ export interface UpdateWorldVersionMetadataRequest {
   description?: string | null;
   thumbnailPath?: string | null;
   physics?: PhysicsConfig | null; // 物理設定更新（nullで削除）
+  camera?: CameraConfig | null; // カメラ設定更新（nullで削除）
 }
 
 export interface UpdateWorldVersionMetadataResponse {

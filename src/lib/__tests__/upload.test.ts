@@ -240,6 +240,129 @@ describe('upload - メタデータ更新ロジックテスト', () => {
       });
     });
 
+    it('cameraが設定されている場合、更新リクエストに含まれる', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          title: 'Test World',
+          camera: {
+            near: 0.1,
+            far: 1000,
+          },
+        },
+      };
+
+      const thumbnailPath = undefined;
+
+      // メタデータ更新条件をチェック（cameraも含む）
+      const shouldUpdate = !!(
+        config.world.title ||
+        config.world.camera ||
+        thumbnailPath !== undefined
+      );
+
+      expect(shouldUpdate).toBe(true);
+
+      // 更新リクエストを作成
+      const updateRequest: {
+        name?: string;
+        description?: string;
+        thumbnailPath?: string;
+        camera?: { near?: number; far?: number };
+      } = {};
+      if (config.world.title) {
+        updateRequest.name = config.world.title;
+      }
+      if (config.world.camera) {
+        updateRequest.camera = config.world.camera;
+      }
+
+      expect(updateRequest).toEqual({
+        name: 'Test World',
+        camera: {
+          near: 0.1,
+          far: 1000,
+        },
+      });
+    });
+
+    it('cameraのみが設定されている場合、cameraのみを含む更新リクエストが作成される', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          title: undefined as string | undefined,
+          description: undefined as string | undefined,
+          camera: {
+            near: 0.05,
+            far: 5000,
+          },
+        },
+      };
+
+      const thumbnailPath = undefined;
+
+      // メタデータ更新条件をチェック（cameraも含む）
+      const shouldUpdate = !!(
+        config.world.title ||
+        config.world.description ||
+        config.world.camera ||
+        thumbnailPath !== undefined
+      );
+
+      expect(shouldUpdate).toBe(true);
+
+      // 更新リクエストを作成
+      const updateRequest: {
+        name?: string;
+        description?: string;
+        thumbnailPath?: string;
+        camera?: { near?: number; far?: number };
+      } = {};
+      if (config.world.title) {
+        updateRequest.name = config.world.title;
+      }
+      if (config.world.description !== undefined) {
+        updateRequest.description = config.world.description;
+      }
+      if (thumbnailPath !== undefined) {
+        updateRequest.thumbnailPath = thumbnailPath;
+      }
+      if (config.world.camera) {
+        updateRequest.camera = config.world.camera;
+      }
+
+      expect(updateRequest).toEqual({
+        camera: {
+          near: 0.05,
+          far: 5000,
+        },
+      });
+    });
+
+    it('cameraがnearのみの場合も正しく更新リクエストに含まれる', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          camera: {
+            near: 0.01,
+          },
+        },
+      };
+
+      const updateRequest: {
+        camera?: { near?: number; far?: number };
+      } = {};
+      if (config.world.camera) {
+        updateRequest.camera = config.world.camera;
+      }
+
+      expect(updateRequest).toEqual({
+        camera: {
+          near: 0.01,
+        },
+      });
+    });
+
     it('physicsがallowInfiniteJumpのみの場合も正しく更新リクエストに含まれる', () => {
       const config = {
         world: {
