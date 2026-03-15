@@ -207,6 +207,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
         description: worldDescription,
         thumbnailPath: thumbnailPath,
         physics: worldConfig.physics,
+        camera: worldConfig.camera,
         permissions: worldConfig.permissions,
         contentHash,
         fileSize,
@@ -232,7 +233,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
         console.log(chalk.yellow('📦 File upload skipped'));
 
         // WorldVersionのメタデータを更新
-        if (worldConfig.title || worldConfig.description || thumbnailPath !== undefined || worldConfig.physics) {
+        if (worldConfig.title || worldConfig.description || thumbnailPath !== undefined || worldConfig.physics || worldConfig.camera) {
           spinner = ora('Updating world info...').start();
           try {
             const updateRequest: UpdateWorldVersionMetadataRequest = {};
@@ -247,6 +248,9 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
             }
             if (worldConfig.physics) {
               updateRequest.physics = worldConfig.physics;
+            }
+            if (worldConfig.camera) {
+              updateRequest.camera = worldConfig.camera;
             }
 
             const updateUrl = `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`;
