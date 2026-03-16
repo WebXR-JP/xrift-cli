@@ -71,6 +71,9 @@ export async function createWorld(
       options.here === undefined ||
       options.skipInstall === undefined);
 
+  let worldTitle = '';
+  let worldDescription = '';
+
   if (needsInteraction) {
     console.log(chalk.cyan('\n✨ Creating an XRift world\n'));
 
@@ -126,6 +129,22 @@ export async function createWorld(
       });
     }
 
+    // ワールドタイトル（必須）
+    questions.push({
+      type: 'text',
+      name: 'worldTitle',
+      message: 'Enter a world title',
+      validate: (value: string) =>
+        value.trim().length > 0 ? true : 'World title is required',
+    });
+
+    // ワールドの説明（任意）
+    questions.push({
+      type: 'text',
+      name: 'worldDescription',
+      message: 'Enter a world description (optional)',
+    });
+
     // インストール有無が未指定の場合のみ質問
     if (options.skipInstall === undefined) {
       questions.push({
@@ -157,6 +176,8 @@ export async function createWorld(
     if (response.templateType === 'custom') {
       options.template = response.customTemplate;
     }
+    worldTitle = response.worldTitle?.trim() || '';
+    worldDescription = response.worldDescription?.trim() || '';
   }
 
   // この時点で projectName は必ず定義されている
@@ -204,7 +225,12 @@ export async function createWorld(
   await downloadTemplate(options.template!, projectPath);
 
   // プロジェクトのカスタマイズ
-  await customizeProject(projectName, projectPath);
+  await customizeProject(
+    projectName,
+    projectPath,
+    worldTitle || projectName,
+    worldDescription
+  );
 
   // 依存関係のインストール
   if (!options.skipInstall) {

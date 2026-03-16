@@ -75,7 +75,9 @@ async function replaceInFile(
  */
 export async function customizeProject(
   projectName: string,
-  projectPath: string
+  projectPath: string,
+  worldTitle: string,
+  worldDescription: string
 ): Promise<void> {
   const spinner = ora('Customizing project...').start();
 
@@ -96,11 +98,26 @@ export async function customizeProject(
       { from: 'xrift_world_template', to: `xrift_${snakeCaseName}` },
     ]);
 
-    // index.html を更新
+    // index.html を更新（ワールドタイトルを使用）
     await replaceInFile(join(projectPath, 'index.html'), [
-      { from: '<title>XRift Test World</title>', to: `<title>${projectName}</title>` },
-      { from: '<title>XRift World Template</title>', to: `<title>${projectName}</title>` },
+      { from: '<title>XRift Test World</title>', to: `<title>${worldTitle}</title>` },
+      { from: '<title>XRift World Template</title>', to: `<title>${worldTitle}</title>` },
     ]);
+
+    // xrift.json を更新（ワールドタイトル・説明を反映）
+    const xriftJsonPath = join(projectPath, 'xrift.json');
+    if (await pathExists(xriftJsonPath)) {
+      const raw = await readFile(xriftJsonPath, 'utf-8');
+      const config = JSON.parse(raw);
+      if (!config.world) {
+        config.world = {};
+      }
+      config.world.title = worldTitle;
+      if (worldDescription) {
+        config.world.description = worldDescription;
+      }
+      await writeFile(xriftJsonPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    }
 
     spinner.succeed('Project customized');
   } catch (error) {
