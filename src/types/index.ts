@@ -100,7 +100,6 @@ export interface UploadUrlsResponse {
   versionId: string;
   contentHash: string;
   versionNumber: number;
-  alreadyExists?: boolean; // 既存バージョンの場合true
 }
 
 export interface CompleteUploadRequest {
@@ -129,26 +128,6 @@ export interface UpdateWorldMetadataRequest {
   description?: string;
 }
 
-export interface UpdateWorldVersionMetadataRequest {
-  name?: string;
-  description?: string | null;
-  thumbnailPath?: string | null;
-  physics?: PhysicsConfig | null; // 物理設定更新（nullで削除）
-  camera?: CameraConfig | null; // カメラ設定更新（nullで削除）
-}
-
-export interface UpdateWorldVersionMetadataResponse {
-  id: string;
-  worldId: string;
-  name: string;
-  description?: string;
-  thumbnailPath?: string;
-  contentHash: string;
-  fileSize: string;
-  status: string;
-  versionNumber: number;
-  updatedAt: string;
-}
 
 export interface VerifyTokenResponse {
   valid: boolean;
