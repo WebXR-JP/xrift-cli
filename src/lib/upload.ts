@@ -26,8 +26,6 @@ import type {
   UploadUrlsResponse,
   CompleteUploadRequest,
   CompleteUploadResponse,
-  UpdateWorldVersionMetadataRequest,
-  UpdateWorldVersionMetadataResponse,
 } from '../types/index.js';
 
 /**
@@ -225,75 +223,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
       signedUrls = response.data.uploadUrls;
       versionId = response.data.versionId;
       versionNumber = response.data.versionNumber;
-      const alreadyExists = response.data.alreadyExists || false;
 
-      if (alreadyExists) {
-        // 既存バージョンの場合：メタデータのみ更新
-        spinner.succeed(chalk.yellow(`A version with the same content already exists (v${versionNumber})`));
-        console.log(chalk.yellow('📦 File upload skipped'));
-
-        // WorldVersionのメタデータを更新
-        if (worldConfig.title || worldConfig.description || thumbnailPath !== undefined || worldConfig.physics || worldConfig.camera) {
-          spinner = ora('Updating world info...').start();
-          try {
-            const updateRequest: UpdateWorldVersionMetadataRequest = {};
-            if (worldConfig.title) {
-              updateRequest.name = worldConfig.title;
-            }
-            if (worldConfig.description !== undefined) {
-              updateRequest.description = worldConfig.description;
-            }
-            if (thumbnailPath !== undefined) {
-              updateRequest.thumbnailPath = thumbnailPath;
-            }
-            if (worldConfig.physics) {
-              updateRequest.physics = worldConfig.physics;
-            }
-            if (worldConfig.camera) {
-              updateRequest.camera = worldConfig.camera;
-            }
-
-            const updateUrl = `${WORLD_UPDATE_PATH}/${worldId}/versions/${versionId}`;
-            logVerbose(`PATCH ${updateUrl}`);
-            logVerbose(`Request body: ${JSON.stringify(updateRequest, null, 2)}`);
-
-            const updateResponse = await client.patch<UpdateWorldVersionMetadataResponse>(
-              updateUrl,
-              updateRequest
-            );
-
-            spinner.succeed(chalk.green('✓ World info updated'));
-            console.log(chalk.gray(`  Title: ${updateResponse.data.name}`));
-            if (updateResponse.data.description) {
-              console.log(chalk.gray(`  Description: ${updateResponse.data.description}`));
-            }
-            if (updateResponse.data.thumbnailPath) {
-              console.log(chalk.gray(`  Thumbnail: ${updateResponse.data.thumbnailPath}`));
-            }
-
-            console.log(chalk.green('\n✅ Done'));
-            return; // 正常終了
-          } catch (updateError) {
-            spinner.fail(chalk.red('Failed to update world info'));
-            if (axios.isAxiosError(updateError)) {
-              if (updateError.response) {
-                console.error(chalk.red(`Status code: ${updateError.response.status}`));
-                console.error(chalk.red(`Error details: ${JSON.stringify(updateError.response.data, null, 2)}`));
-              } else if (updateError.request) {
-                console.error(chalk.red('Request was sent but no response was received'));
-              } else {
-                console.error(chalk.red(`Error: ${updateError.message}`));
-              }
-            }
-            throw updateError;
-          }
-        } else {
-          console.log(chalk.yellow('No information to update'));
-          return; // 何もせず終了
-        }
-      }
-
-      // 新規バージョンの場合：通常のアップロードフロー
       spinner.succeed(
         chalk.green(
           `Retrieved ${signedUrls.length} upload URLs (version: ${versionNumber})`
