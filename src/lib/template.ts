@@ -127,6 +127,59 @@ export async function customizeProject(
 }
 
 /**
+ * アイテムプロジェクトファイルをカスタマイズする
+ */
+export async function customizeItemProject(
+  projectName: string,
+  projectPath: string,
+  itemTitle: string,
+  itemDescription: string
+): Promise<void> {
+  const spinner = ora('Customizing project...').start();
+
+  try {
+    const snakeCaseName = toSnakeCase(projectName);
+
+    // package.json を更新
+    await replaceInFile(join(projectPath, 'package.json'), [
+      { from: '@xrift/item-template', to: `@xrift/${projectName}` },
+      { from: '"version": "0.2.1"', to: '"version": "0.1.0"' },
+      { from: '"version": "1.0.0"', to: '"version": "0.1.0"' },
+    ]);
+
+    // vite.config.ts を更新
+    await replaceInFile(join(projectPath, 'vite.config.ts'), [
+      { from: 'xrift_item_template', to: `xrift_${snakeCaseName}` },
+    ]);
+
+    // index.html を更新（アイテムタイトルを使用）
+    await replaceInFile(join(projectPath, 'index.html'), [
+      { from: '<title>xrift-item-template</title>', to: `<title>${itemTitle}</title>` },
+    ]);
+
+    // xrift.json を更新（アイテムタイトル・説明を反映）
+    const xriftJsonPath = join(projectPath, 'xrift.json');
+    if (await pathExists(xriftJsonPath)) {
+      const raw = await readFile(xriftJsonPath, 'utf-8');
+      const config = JSON.parse(raw);
+      if (!config.item) {
+        config.item = {};
+      }
+      config.item.title = itemTitle;
+      if (itemDescription) {
+        config.item.description = itemDescription;
+      }
+      await writeFile(xriftJsonPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    }
+
+    spinner.succeed('Project customized');
+  } catch (error) {
+    spinner.fail('Failed to customize project');
+    throw error;
+  }
+}
+
+/**
  * 依存関係をインストールする
  */
 export async function installDependencies(projectPath: string): Promise<void> {
