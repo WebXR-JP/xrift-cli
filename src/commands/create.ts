@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import prompts from 'prompts';
 import { createWorld } from '../lib/create-world.js';
+import { createItem } from '../lib/create-item.js';
 
 export const createCommand = new Command('create')
   .description('Create a new XRift project')
@@ -13,7 +14,7 @@ export const createCommand = new Command('create')
       message: 'What would you like to create?',
       choices: [
         { title: 'World', value: 'world' },
-        // 将来: { title: 'Item', value: 'item' },
+        { title: 'Item', value: 'item' },
       ],
     });
 
@@ -22,17 +23,19 @@ export const createCommand = new Command('create')
       process.exit(0);
     }
 
-    if (response.type === 'world') {
-      try {
+    try {
+      if (response.type === 'world') {
         await createWorld(undefined, {});
-      } catch (error) {
-        if (error instanceof Error) {
-          console.error(chalk.red('\nError:'), error.message);
-        } else {
-          console.error(chalk.red('\nAn unexpected error occurred'));
-        }
-        process.exit(1);
+      } else if (response.type === 'item') {
+        await createItem(undefined, {});
       }
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(chalk.red('\nError:'), error.message);
+      } else {
+        console.error(chalk.red('\nAn unexpected error occurred'));
+      }
+      process.exit(1);
     }
   });
 
@@ -51,6 +54,31 @@ createCommand
   .action(async (projectName: string | undefined, options) => {
     try {
       await createWorld(projectName, options);
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(chalk.red('\nError:'), error.message);
+      } else {
+        console.error(chalk.red('\nAn unexpected error occurred'));
+      }
+      process.exit(1);
+    }
+  });
+
+createCommand
+  .command('item')
+  .argument('[project-name]', 'Project name (interactive if omitted)')
+  .option(
+    '-t, --template <repository>',
+    'Template repository (e.g. WebXR-JP/xrift-item-template)',
+    'WebXR-JP/xrift-item-template'
+  )
+  .option('--skip-install', 'Skip dependency installation')
+  .option('--here', 'Create directly in the current directory')
+  .option('-y, --no-interactive', 'Disable interactive mode')
+  .description('Create a new XRift item project')
+  .action(async (projectName: string | undefined, options) => {
+    try {
+      await createItem(projectName, options);
     } catch (error) {
       if (error instanceof Error) {
         console.error(chalk.red('\nError:'), error.message);
