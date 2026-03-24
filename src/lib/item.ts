@@ -20,9 +20,12 @@ import { runSecurityCheck, printResults } from './check.js';
 import type {
   CreateItemRequest,
   CreateItemResponse,
+  SignedUrlResponse,
   UploadFileInfo,
   ItemUploadUrlsRequest,
   ItemUploadUrlsResponse,
+  CompleteItemUploadRequest,
+  CompleteItemUploadResponse,
 } from '../types/index.js';
 
 /**
@@ -84,7 +87,7 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
       spinner = ora('Running security check...').start();
       const jsFiles = files.filter((f) => /\.(js|mjs)$/.test(f));
       if (jsFiles.length > 0) {
-        const checkResult = await runSecurityCheck(jsFiles, distDir);
+        const checkResult = await runSecurityCheck(jsFiles, distDir, itemConfig.permissions);
         if (checkResult.hasReject) {
           spinner.fail('Security check failed');
           printResults(checkResult);
@@ -98,6 +101,28 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
         }
       } else {
         spinner.succeed('No JS files to check');
+      }
+    }
+
+    // 3.6. サムネイル設定を確認
+    let thumbnailPath: string | undefined;
+    if (itemConfig.thumbnailPath) {
+      const configuredPath = path.join(distDir, itemConfig.thumbnailPath);
+      try {
+        const stat = await fs.stat(configuredPath);
+        if (stat.isFile()) {
+          thumbnailPath = itemConfig.thumbnailPath;
+          console.log(chalk.green(`✓ Thumbnail: ${itemConfig.thumbnailPath}`));
+        } else {
+          throw new Error(`${itemConfig.thumbnailPath} is not a file`);
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error(
+            `Configured thumbnail not found: ${itemConfig.thumbnailPath}`
+          );
+        }
+        throw error;
       }
     }
 
@@ -122,12 +147,18 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
     // 6. アイテムメタデータを確認（新規/更新判定）
     const existingMetadata = await loadItemMetadata(cwd);
     let itemId: string;
+    let itemName: string;
+    let itemDescription: string | undefined;
 
     if (existingMetadata) {
       logVerbose(`\nUpdating existing item (ID: ${existingMetadata.id})`);
       itemId = existingMetadata.id;
+
+      // 更新時は設定ファイルから名前と説明を取得
+      itemName = itemConfig.title || path.basename(cwd);
+      itemDescription = itemConfig.description;
     } else {
-      // メタデータを収集
+      // 新規作成時はメタデータを収集
       const metadata = await collectItemMetadata(
         {
           title: itemConfig.title,
@@ -135,15 +166,14 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
         },
         path.basename(cwd)
       );
+      itemName = metadata.title;
+      itemDescription = metadata.description;
 
-      // 新規アイテム作成
+      // 新規アイテム作成（空のリクエストボディ）
       spinner = ora('Creating new item...').start();
 
       try {
-        const createRequest: CreateItemRequest = {
-          name: metadata.title,
-          description: metadata.description,
-        };
+        const createRequest: CreateItemRequest = {};
 
         const response = await client.post<CreateItemResponse>(ITEM_CREATE_PATH, createRequest);
 
@@ -166,14 +196,21 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
     // 8. 署名付きURLを取得
     spinner = ora('Fetching upload URLs...').start();
 
+    let signedUrls: SignedUrlResponse[];
+    let versionId: string;
+    let versionNumber: number;
     try {
       const uploadUrlsRequest: ItemUploadUrlsRequest = {
+        name: itemName,
+        description: itemDescription,
+        thumbnailPath: thumbnailPath,
         contentHash,
         fileSize,
         files: uploadFiles.map((f) => ({
           path: f.remotePath,
           contentType: getMimeType(f.localPath),
         })),
+        permissions: itemConfig.permissions,
       };
 
       const response = await client.post<ItemUploadUrlsResponse>(
@@ -181,72 +218,97 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
         uploadUrlsRequest
       );
 
-      const signedUrls = response.data.uploadUrls;
+      signedUrls = response.data.uploadUrls;
+      versionId = response.data.versionId;
+      versionNumber = response.data.versionNumber;
 
       spinner.succeed(
-        chalk.green(`Retrieved ${signedUrls.length} upload URLs`)
+        chalk.green(
+          `Retrieved ${signedUrls.length} upload URLs (version: ${versionNumber})`
+        )
       );
 
       if (signedUrls.length > 0) {
         logVerbose(`Debug: First URL structure: ${JSON.stringify(signedUrls[0], null, 2)}`);
       }
-
-      // 9. ファイルをアップロード
-      console.log(chalk.blue('\n📤 Uploading files...\n'));
-
-      const progressBar = new cliProgress.SingleBar(
-        {
-          format: `${chalk.cyan('{bar}')} | {percentage}% | {value}/{total} files | {filename}`,
-          barCompleteChar: '█',
-          barIncompleteChar: '░',
-          hideCursor: true,
-        },
-        cliProgress.Presets.shades_classic
-      );
-
-      progressBar.start(uploadFiles.length, 0, { filename: '' });
-
-      for (let i = 0; i < uploadFiles.length; i++) {
-        const fileInfo = uploadFiles[i];
-        const signedUrl = signedUrls[i];
-
-        progressBar.update(i, { filename: fileInfo.remotePath });
-
-        try {
-          const fileBuffer = await fs.readFile(fileInfo.localPath);
-
-          await axios.put(signedUrl.uploadUrl, fileBuffer, {
-            headers: {
-              'Content-Type': getMimeType(fileInfo.localPath),
-              'Content-Length': fileInfo.size,
-            },
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-          });
-        } catch (error) {
-          progressBar.stop();
-          console.error(chalk.red(`\n❌ Failed to upload ${fileInfo.remotePath}`));
-          throw error;
-        }
-      }
-
-      progressBar.update(uploadFiles.length, { filename: 'Done' });
-      progressBar.stop();
-
-      // 10. アップロード完了通知
-      spinner = ora('Notifying upload completion...').start();
-
-      await client.post(`${ITEM_COMPLETE_PATH}/${itemId}/complete`);
-
-      spinner.succeed(chalk.green('Upload completed'));
+      logVerbose(`Version ID: ${versionId}`);
     } catch (error) {
-      spinner.fail(chalk.red('Failed during upload'));
+      spinner.fail(chalk.red('Failed to retrieve upload URLs'));
       if (axios.isAxiosError(error) && error.response) {
         const errorData = error.response.data;
         const errorMessage = typeof errorData === 'object' && errorData.error
           ? errorData.error
           : JSON.stringify(errorData);
         console.error(chalk.red(`Backend error: ${errorMessage}`));
+      }
+      throw error;
+    }
+
+    // 9. ファイルをアップロード
+    console.log(chalk.blue('\n📤 Uploading files...\n'));
+
+    const progressBar = new cliProgress.SingleBar(
+      {
+        format: `${chalk.cyan('{bar}')} | {percentage}% | {value}/{total} files | {filename}`,
+        barCompleteChar: '█',
+        barIncompleteChar: '░',
+        hideCursor: true,
+      },
+      cliProgress.Presets.shades_classic
+    );
+
+    progressBar.start(uploadFiles.length, 0, { filename: '' });
+
+    for (let i = 0; i < uploadFiles.length; i++) {
+      const fileInfo = uploadFiles[i];
+      const signedUrl = signedUrls[i];
+
+      progressBar.update(i, { filename: fileInfo.remotePath });
+
+      try {
+        const fileBuffer = await fs.readFile(fileInfo.localPath);
+
+        await axios.put(signedUrl.uploadUrl, fileBuffer, {
+          headers: {
+            'Content-Type': getMimeType(fileInfo.localPath),
+            'Content-Length': fileInfo.size,
+          },
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+        });
+      } catch (error) {
+        progressBar.stop();
+        console.error(chalk.red(`\n❌ Failed to upload ${fileInfo.remotePath}`));
+        throw error;
+      }
+    }
+
+    progressBar.update(uploadFiles.length, { filename: 'Done' });
+    progressBar.stop();
+
+    // 10. アップロード完了通知
+    spinner = ora('Notifying upload completion...').start();
+    try {
+      const completeRequest: CompleteItemUploadRequest = {
+        versionId,
+      };
+
+      const completeResponse = await client.post<CompleteItemUploadResponse>(
+        `${ITEM_COMPLETE_PATH}/${itemId}/complete`,
+        completeRequest
+      );
+
+      spinner.succeed(
+        chalk.green(
+          `Upload completed (version: ${completeResponse.data.versionNumber})`
+        )
+      );
+      logVerbose(`Status: ${completeResponse.data.status}`);
+      logVerbose(`Item name: ${completeResponse.data.name}`);
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to notify upload completion'));
+      if (axios.isAxiosError(error) && error.response) {
+        console.error(chalk.red(`Backend error: ${JSON.stringify(error.response.data)}`));
       }
       throw error;
     }
