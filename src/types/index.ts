@@ -17,6 +17,11 @@ export interface WorldPermissions {
   allowedCodeRules?: string[];
 }
 
+export interface ItemPermissions {
+  allowedDomains?: string[];
+  allowedCodeRules?: string[];
+}
+
 export interface XriftConfig {
   world?: {
     distDir: string;
@@ -36,6 +41,7 @@ export interface XriftConfig {
     thumbnailPath?: string; // サムネイルパス
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するglobパターン
+    permissions?: ItemPermissions; // セキュリティ権限宣言
   };
 }
 
@@ -154,35 +160,49 @@ export interface ExchangeTokenResponse {
 // Item types
 
 export interface CreateItemRequest {
-  name: string;
-  description?: string;
+  // ItemVersion ベース: 空のリクエストボディ
 }
 
 export interface CreateItemResponse {
   id: string;
-  name: string;
-  description?: string;
   ownerId: string;
-  status: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ItemUploadUrlsRequest {
-  contentHash: string;
+  name: string; // アイテム名（必須）
+  description?: string; // 説明（任意）
+  thumbnailPath?: string; // サムネイルパス（任意）
+  contentHash: string; // 12文字の16進数
   fileSize: number;
   files: Array<{
     path: string;
     contentType: string;
   }>;
+  permissions?: ItemPermissions; // セキュリティ権限宣言（任意）
 }
 
 export interface ItemUploadUrlsResponse {
+  uploadUrls: SignedUrlResponse[];
+  versionId: string;
+  contentHash: string;
+  versionNumber: number;
+}
+
+export interface CompleteItemUploadRequest {
+  versionId: string;
+}
+
+export interface CompleteItemUploadResponse {
+  versionId: string;
   itemId: string;
-  uploadUrls: Array<{
-    path: string;
-    uploadUrl: string;
-    publicUrl: string;
-    expiresAt: string;
-  }>;
+  name: string;
+  description?: string;
+  contentHash: string;
+  fileSize: number;
+  status: string;
+  versionNumber: number;
+  createdAt: string;
+  updatedAt: string;
 }
