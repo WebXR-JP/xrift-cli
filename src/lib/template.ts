@@ -98,13 +98,14 @@ export async function customizeProject(
       { from: 'xrift_world_template', to: `xrift_${snakeCaseName}` },
     ]);
 
-    // index.html を更新（ワールドタイトルを使用）
+    // index.html を更新（ワールドタイトルを使用、未指定時はプロジェクト名）
+    const htmlTitle = worldTitle || projectName;
     await replaceInFile(join(projectPath, 'index.html'), [
-      { from: '<title>XRift Test World</title>', to: `<title>${worldTitle}</title>` },
-      { from: '<title>XRift World Template</title>', to: `<title>${worldTitle}</title>` },
+      { from: '<title>XRift Test World</title>', to: `<title>${htmlTitle}</title>` },
+      { from: '<title>XRift World Template</title>', to: `<title>${htmlTitle}</title>` },
     ]);
 
-    // xrift.json を更新（ワールドタイトル・説明を反映）
+    // xrift.json を更新（ワールドタイトル・説明を反映、未入力時は書き込まない）
     const xriftJsonPath = join(projectPath, 'xrift.json');
     if (await pathExists(xriftJsonPath)) {
       const raw = await readFile(xriftJsonPath, 'utf-8');
@@ -112,7 +113,9 @@ export async function customizeProject(
       if (!config.world) {
         config.world = {};
       }
-      config.world.title = worldTitle;
+      if (worldTitle) {
+        config.world.title = worldTitle;
+      }
       if (worldDescription) {
         config.world.description = worldDescription;
       }
