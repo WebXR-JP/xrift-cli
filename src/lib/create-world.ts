@@ -228,7 +228,7 @@ export async function createWorld(
   await customizeProject(
     projectName,
     projectPath,
-    worldTitle || projectName,
+    worldTitle,
     worldDescription
   );
 

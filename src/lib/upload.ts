@@ -159,13 +159,23 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
       worldDescription = worldConfig.description;
     } else {
       // 新規作成時はメタデータを収集
-      const metadata = await collectWorldMetadata(
-        {
-          title: worldConfig.title,
-          description: worldConfig.description,
-        },
-        path.basename(cwd)
-      );
+      // xrift.json に title があればプロンプトをスキップ
+      let metadata: { title: string; description?: string };
+      if (worldConfig.title) {
+        metadata = { title: worldConfig.title, description: worldConfig.description };
+        console.log(chalk.blue(`\n📝 World title: ${metadata.title}`));
+        if (metadata.description) {
+          console.log(chalk.blue(`   Description: ${metadata.description}`));
+        }
+      } else {
+        metadata = await collectWorldMetadata(
+          {
+            title: worldConfig.title,
+            description: worldConfig.description,
+          },
+          path.basename(cwd)
+        );
+      }
       worldName = metadata.title;
       worldDescription = metadata.description;
 
