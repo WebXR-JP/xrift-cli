@@ -395,7 +395,7 @@ describe('upload - メタデータ更新ロジックテスト', () => {
           distDir: 'dist',
           title: undefined as string | undefined,
           description: undefined as string | undefined,
-          outputBufferType: 'FloatType' as const,
+          outputBufferType: 'UnsignedByteType' as const,
         },
       };
 
@@ -415,7 +415,7 @@ describe('upload - メタデータ更新ロジックテスト', () => {
       }
 
       expect(updateRequest).toEqual({
-        outputBufferType: 'FloatType',
+        outputBufferType: 'UnsignedByteType',
       });
     });
 
