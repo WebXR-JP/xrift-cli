@@ -217,6 +217,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
         physics: worldConfig.physics,
         camera: worldConfig.camera,
         permissions: worldConfig.permissions,
+        outputBufferType: worldConfig.outputBufferType,
         contentHash,
         fileSize,
         files: uploadFiles.map((f) => ({

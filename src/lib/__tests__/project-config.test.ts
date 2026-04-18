@@ -162,6 +162,41 @@ describe('project-config', () => {
       expect(loaded.world!.camera?.far).toBe(5000);
     });
 
+    it('outputBufferType設定を含む設定ファイルを読み込める', async () => {
+      const config: XriftConfig = {
+        world: {
+          distDir: './dist',
+          title: 'Test World',
+          outputBufferType: 'HalfFloatType',
+        },
+      };
+
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(config, null, 2)
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+      expect(loaded).toEqual(config);
+      expect(loaded.world!.outputBufferType).toBe('HalfFloatType');
+    });
+
+    it('outputBufferTypeが未指定の場合はundefined', async () => {
+      const config: XriftConfig = {
+        world: {
+          distDir: './dist',
+        },
+      };
+
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        JSON.stringify(config, null, 2)
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+      expect(loaded.world!.outputBufferType).toBeUndefined();
+    });
+
     it('physics設定が部分的に指定されている場合も読み込める', async () => {
       const config: XriftConfig = {
         world: {
