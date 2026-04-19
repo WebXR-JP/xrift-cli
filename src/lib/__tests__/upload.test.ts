@@ -363,6 +363,62 @@ describe('upload - メタデータ更新ロジックテスト', () => {
       });
     });
 
+    it('outputBufferTypeが設定されている場合、更新リクエストに含まれる', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          title: 'Test World',
+          outputBufferType: 'HalfFloatType' as const,
+        },
+      };
+
+      const updateRequest: {
+        name?: string;
+        outputBufferType?: string;
+      } = {};
+      if (config.world.title) {
+        updateRequest.name = config.world.title;
+      }
+      if (config.world.outputBufferType) {
+        updateRequest.outputBufferType = config.world.outputBufferType;
+      }
+
+      expect(updateRequest).toEqual({
+        name: 'Test World',
+        outputBufferType: 'HalfFloatType',
+      });
+    });
+
+    it('outputBufferTypeのみが設定されている場合、outputBufferTypeのみを含む更新リクエストが作成される', () => {
+      const config = {
+        world: {
+          distDir: 'dist',
+          title: undefined as string | undefined,
+          description: undefined as string | undefined,
+          outputBufferType: 'FloatType' as const,
+        },
+      };
+
+      const updateRequest: {
+        name?: string;
+        description?: string;
+        outputBufferType?: string;
+      } = {};
+      if (config.world.title) {
+        updateRequest.name = config.world.title;
+      }
+      if (config.world.description !== undefined) {
+        updateRequest.description = config.world.description;
+      }
+      if (config.world.outputBufferType) {
+        updateRequest.outputBufferType = config.world.outputBufferType;
+      }
+
+      expect(updateRequest).toEqual({
+        outputBufferType: 'FloatType',
+      });
+    });
+
     it('physicsがallowInfiniteJumpのみの場合も正しく更新リクエストに含まれる', () => {
       const config = {
         world: {

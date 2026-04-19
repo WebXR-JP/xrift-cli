@@ -22,6 +22,8 @@ export interface ItemPermissions {
   allowedCodeRules?: string[];
 }
 
+export type OutputBufferType = 'UnsignedByteType' | 'HalfFloatType' | 'FloatType';
+
 export interface XriftConfig {
   world?: {
     distDir: string;
@@ -33,6 +35,7 @@ export interface XriftConfig {
     physics?: PhysicsConfig; // 物理設定
     camera?: CameraConfig; // カメラ設定
     permissions?: WorldPermissions; // セキュリティ権限宣言
+    outputBufferType?: OutputBufferType; // WebGLRenderer の出力バッファタイプ
   };
   item?: {
     distDir: string; // ビルド成果物のディレクトリ
@@ -93,6 +96,7 @@ export interface UploadUrlsRequest {
   physics?: PhysicsConfig; // 物理設定（任意）
   camera?: CameraConfig; // カメラ設定（任意）
   permissions?: WorldPermissions; // セキュリティ権限宣言（任意）
+  outputBufferType?: OutputBufferType; // WebGLRenderer の出力バッファタイプ（任意）
   contentHash: string;
   fileSize: number;
   files: Array<{
