@@ -1,6 +1,5 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import crypto from 'node:crypto';
 import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import cliProgress from 'cli-progress';
@@ -17,6 +16,7 @@ import { getAuthenticatedClient } from './api.js';
 import { WORLD_CREATE_PATH, WORLD_UPDATE_PATH, WORLD_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
 import { runSecurityCheck, printResults } from './check.js';
+import { calculateContentHash } from './hash.js';
 import type {
   CreateWorldResponse,
   CreateWorldRequest,
@@ -197,7 +197,12 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
 
     // 7. contentHashとfileSizeを計算
     spinner = ora('Calculating file hashes...').start();
-    const contentHash = await calculateContentHash(uploadFiles);
+    const contentHash = await calculateContentHash(uploadFiles, {
+      physics: worldConfig.physics,
+      camera: worldConfig.camera,
+      permissions: worldConfig.permissions,
+      outputBufferType: worldConfig.outputBufferType,
+    });
     const fileSize = calculateTotalSize(uploadFiles);
     spinner.succeed(
       chalk.green(`Hash calculated (contentHash: ${contentHash}, fileSize: ${fileSize} bytes)`)
@@ -353,26 +358,6 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
 
     throw error;
   }
-}
-
-/**
- * 全ファイルを結合してSHA-256ハッシュを計算（先頭12文字）
- */
-async function calculateContentHash(uploadFiles: UploadFileInfo[]): Promise<string> {
-  const hash = crypto.createHash('sha256');
-
-  // ファイルをパスでソートして順序を確定
-  const sortedFiles = [...uploadFiles].sort((a, b) =>
-    a.remotePath.localeCompare(b.remotePath)
-  );
-
-  for (const fileInfo of sortedFiles) {
-    const fileBuffer = await fs.readFile(fileInfo.localPath);
-    hash.update(fileBuffer);
-  }
-
-  const fullHash = hash.digest('hex');
-  return fullHash.substring(0, 12); // 先頭12文字
 }
 
 /**
