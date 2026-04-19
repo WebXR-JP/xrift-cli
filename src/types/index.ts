@@ -22,7 +22,7 @@ export interface ItemPermissions {
   allowedCodeRules?: string[];
 }
 
-export type OutputBufferType = 'UnsignedByteType' | 'HalfFloatType';
+export type OutputBufferType = 'UnsignedByteType' | 'HalfFloatType' | 'FloatType';
 
 export interface XriftConfig {
   world?: {
