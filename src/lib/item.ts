@@ -163,7 +163,7 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
 
     let progressStarted = false;
 
-    const result = await uploadItemFromDirectory(distDir, {
+    const result = await uploadItemFromDirectory(cwd, {
       token,
       baseUrl: API_BASE_URL,
       itemId,

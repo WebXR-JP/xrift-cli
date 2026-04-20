@@ -163,7 +163,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
 
     let progressStarted = false;
 
-    const result = await uploadWorldFromDirectory(distDir, {
+    const result = await uploadWorldFromDirectory(cwd, {
       token,
       baseUrl: API_BASE_URL,
       worldId,
