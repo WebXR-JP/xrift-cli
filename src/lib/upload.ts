@@ -4,25 +4,19 @@ import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import cliProgress from 'cli-progress';
 import prompts from 'prompts';
-import { calculateContentHash, getMimeType, XriftApiError } from '@xrift/sdk';
+import { uploadWorldFromDirectory } from '@xrift/sdk/node';
 import {
   loadProjectConfig,
+  updateProjectConfig,
   loadWorldMetadata,
   saveWorldMetadata,
   validateDistDir,
   scanDirectory,
 } from './project-config.js';
-import { getAuthenticatedClient } from './api.js';
+import { getVerifiedToken } from './api.js';
+import { API_BASE_URL } from './constants.js';
 import { logVerbose } from './logger.js';
 import { runSecurityCheck, printResults } from './check.js';
-import type {
-  CreateWorldResponse,
-  SignedUrlResponse,
-  UploadFileInfo,
-  WorldUploadUrlsRequest,
-  WorldUploadUrlsResponse,
-  CompleteWorldUploadResponse,
-} from '../types/index.js';
 
 /**
  * ワールドをアップロード
@@ -67,7 +61,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
     await validateDistDir(distDir);
     spinner.succeed(chalk.green('Dist directory validated'));
 
-    // 3. ファイルをスキャン
+    // 3. ファイルをスキャン（セキュリティチェック用）
     spinner = ora('Scanning files...').start();
     const files = await scanDirectory(distDir, worldConfig.ignore);
 
@@ -101,13 +95,11 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
     }
 
     // 3.6. サムネイル設定を確認
-    let thumbnailPath: string | undefined;
     if (worldConfig.thumbnailPath) {
       const configuredPath = path.join(distDir, worldConfig.thumbnailPath);
       try {
         const stat = await fs.stat(configuredPath);
         if (stat.isFile()) {
-          thumbnailPath = worldConfig.thumbnailPath;
           console.log(chalk.green(`✓ Thumbnail: ${worldConfig.thumbnailPath}`));
         } else {
           throw new Error(`${worldConfig.thumbnailPath} is not a file`);
@@ -122,148 +114,41 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
       }
     }
 
-    // 4. ファイル情報を準備
-    const uploadFiles: UploadFileInfo[] = await Promise.all(
-      files.map(async (filePath) => {
-        const stat = await fs.stat(filePath);
-        const relativePath = path.relative(distDir, filePath);
-        return {
-          localPath: filePath,
-          remotePath: relativePath.replace(/\\/g, '/'), // Windows対応
-          size: stat.size,
-        };
-      })
-    );
-
-    // 5. 認証済みクライアントを取得
+    // 4. 認証トークンを取得
     spinner = ora('Verifying credentials...').start();
-    const client = await getAuthenticatedClient();
+    const token = await getVerifiedToken();
     spinner.succeed(chalk.green('Credentials verified'));
 
-    // 6. ワールドメタデータを確認（新規/更新判定）
+    // 5. ワールドメタデータを確認（新規/更新判定）
     const existingMetadata = await loadWorldMetadata(cwd);
-    let worldId: string;
-    let worldName: string;
-    let worldDescription: string | undefined;
+    let worldId: string | undefined;
 
     if (existingMetadata) {
       logVerbose(`\nUpdating existing world (ID: ${existingMetadata.id})`);
       worldId = existingMetadata.id;
-
-      // 更新時は設定ファイルから名前と説明を取得
-      worldName = worldConfig.title || path.basename(cwd);
-      worldDescription = worldConfig.description;
     } else {
-      // 新規作成時はメタデータを収集
-      // xrift.json に title があればプロンプトをスキップ
-      let metadata: { title: string; description?: string };
-      if (worldConfig.title) {
-        metadata = { title: worldConfig.title, description: worldConfig.description };
-        console.log(chalk.blue(`\n📝 World title: ${metadata.title}`));
-        if (metadata.description) {
-          console.log(chalk.blue(`   Description: ${metadata.description}`));
-        }
-      } else {
-        metadata = await collectWorldMetadata(
+      // 新規作成時: title が未設定ならインタラクティブに入力して xrift.json に保存
+      if (!worldConfig.title) {
+        const metadata = await collectWorldMetadata(
           {
             title: worldConfig.title,
             description: worldConfig.description,
           },
           path.basename(cwd)
         );
-      }
-      worldName = metadata.title;
-      worldDescription = metadata.description;
-
-      // 新規ワールド作成
-      spinner = ora('Creating new world...').start();
-
-      try {
-        const response: CreateWorldResponse = await client.worlds.create();
-
-        worldId = response.id;
-        spinner.succeed(chalk.green(`New world created (ID: ${worldId})`));
-      } catch (error) {
-        spinner.fail(chalk.red('Failed to create world'));
-        throw error;
+        // xrift.json に保存
+        await updateProjectConfig(cwd, {
+          world: { title: metadata.title, description: metadata.description },
+        } as Partial<typeof config>);
+      } else {
+        console.log(chalk.blue(`\n📝 World title: ${worldConfig.title}`));
+        if (worldConfig.description) {
+          console.log(chalk.blue(`   Description: ${worldConfig.description}`));
+        }
       }
     }
 
-    // 7. contentHashとfileSizeを計算
-    spinner = ora('Calculating file hashes...').start();
-    const hashFiles = await Promise.all(
-      uploadFiles.map(async (f) => ({
-        remotePath: f.remotePath,
-        data: new Uint8Array(await fs.readFile(f.localPath)),
-      }))
-    );
-    const contentHash = await calculateContentHash(hashFiles, {
-      physics: worldConfig.physics,
-      camera: worldConfig.camera,
-      permissions: worldConfig.permissions,
-      outputBufferType: worldConfig.outputBufferType,
-    });
-    const fileSize = calculateTotalSize(uploadFiles);
-    spinner.succeed(
-      chalk.green(`Hash calculated (contentHash: ${contentHash}, fileSize: ${fileSize} bytes)`)
-    );
-
-    // 8. 署名付きURLを取得
-    spinner = ora('Fetching upload URLs...').start();
-
-    let signedUrls: SignedUrlResponse[];
-    let versionId: string;
-    let versionNumber: number;
-    try {
-      const uploadUrlsRequest: WorldUploadUrlsRequest = {
-        name: worldName,
-        description: worldDescription,
-        thumbnailPath: thumbnailPath,
-        physics: worldConfig.physics,
-        camera: worldConfig.camera,
-        permissions: worldConfig.permissions,
-        outputBufferType: worldConfig.outputBufferType,
-        contentHash,
-        fileSize,
-        files: uploadFiles.map((f) => ({
-          path: f.remotePath,
-          contentType: getMimeType(f.localPath),
-        })),
-      };
-
-      const response: WorldUploadUrlsResponse = await client.worlds.getUploadUrls(
-        worldId,
-        uploadUrlsRequest
-      );
-
-      signedUrls = response.uploadUrls;
-      versionId = response.versionId;
-      versionNumber = response.versionNumber;
-
-      spinner.succeed(
-        chalk.green(
-          `Retrieved ${signedUrls.length} upload URLs (version: ${versionNumber})`
-        )
-      );
-
-      // デバッグ: 最初のURLを表示
-      if (signedUrls.length > 0) {
-        logVerbose(`Debug: First URL structure: ${JSON.stringify(signedUrls[0], null, 2)}`);
-      }
-      logVerbose(`Version ID: ${versionId}`);
-    } catch (error) {
-      spinner.fail(chalk.red('Failed to retrieve upload URLs'));
-      if (error instanceof XriftApiError && error.responseBody) {
-        const errorData = error.responseBody as Record<string, unknown>;
-        const errorMessage = errorData.error
-          ? String(errorData.error)
-          : JSON.stringify(errorData);
-        console.error(chalk.red(`Backend error: ${errorMessage}`));
-      }
-      throw error;
-    }
-
-    // 9. ファイルをアップロード
+    // 6. SDK の uploadWorldFromDirectory に委譲
     console.log(chalk.blue('\n📤 Uploading files...\n'));
 
     const progressBar = new cliProgress.SingleBar(
@@ -276,73 +161,38 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
       cliProgress.Presets.shades_classic
     );
 
-    progressBar.start(uploadFiles.length, 0, { filename: '' });
+    let progressStarted = false;
 
-    for (let i = 0; i < uploadFiles.length; i++) {
-      const fileInfo = uploadFiles[i];
-      const signedUrl = signedUrls[i];
+    const result = await uploadWorldFromDirectory(cwd, {
+      token,
+      baseUrl: API_BASE_URL,
+      worldId,
+      onProgress: (progress) => {
+        if (!progressStarted) {
+          progressBar.start(progress.total, 0, { filename: '' });
+          progressStarted = true;
+        }
+        progressBar.update(progress.completed, { filename: progress.currentFile });
+      },
+    });
 
-      progressBar.update(i, { filename: fileInfo.remotePath });
-
-      try {
-        const fileBuffer = await fs.readFile(fileInfo.localPath);
-
-        await fetch(signedUrl.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': getMimeType(fileInfo.localPath),
-            'Content-Length': String(fileInfo.size),
-          },
-          body: fileBuffer,
-        });
-      } catch (error) {
-        progressBar.stop();
-        console.error(chalk.red(`\n❌ Failed to upload ${fileInfo.remotePath}`));
-        throw error;
-      }
+    if (progressStarted) {
+      progressBar.stop();
     }
 
-    progressBar.update(uploadFiles.length, { filename: 'Done' });
-    progressBar.stop();
-
-    // 10. アップロード完了通知
-    spinner = ora('Notifying upload completion...').start();
-    try {
-      const completeResponse: CompleteWorldUploadResponse = await client.worlds.complete(
-        worldId,
-        versionId
-      );
-
-      spinner.succeed(
-        chalk.green(
-          `Upload completed (version: ${completeResponse.versionNumber})`
-        )
-      );
-      logVerbose(`Status: ${completeResponse.status}`);
-      logVerbose(`World name: ${completeResponse.name}`);
-    } catch (error) {
-      spinner.fail(chalk.red('Failed to notify upload completion'));
-      if (error instanceof XriftApiError && error.responseBody) {
-        console.error(chalk.red(`Backend error: ${JSON.stringify(error.responseBody)}`));
-      }
-      throw error;
-    }
-
-    // 11. メタデータを保存
+    // 7. メタデータを保存
     await saveWorldMetadata(
       {
-        id: worldId,
+        id: result.worldId,
         createdAt: existingMetadata?.createdAt || new Date().toISOString(),
         lastUploadedAt: new Date().toISOString(),
       },
       cwd
     );
 
-    console.log(chalk.green(`\n✅ World upload complete: ${uploadFiles.length} files`));
-    logVerbose(`World ID: ${worldId}`);
-    if (thumbnailPath) {
-      logVerbose(`Thumbnail: ${thumbnailPath}`);
-    }
+    console.log(chalk.green(`\n✅ World upload complete (version: ${result.versionNumber})`));
+    logVerbose(`World ID: ${result.worldId}`);
+    logVerbose(`Content hash: ${result.contentHash}`);
   } catch (error) {
     if (spinner) {
       spinner.fail(chalk.red('An error occurred'));
@@ -354,13 +204,6 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
 
     throw error;
   }
-}
-
-/**
- * 全ファイルのサイズ合計を計算
- */
-function calculateTotalSize(uploadFiles: UploadFileInfo[]): number {
-  return uploadFiles.reduce((total, file) => total + file.size, 0);
 }
 
 /**

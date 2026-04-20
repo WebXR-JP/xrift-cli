@@ -4,25 +4,19 @@ import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import cliProgress from 'cli-progress';
 import prompts from 'prompts';
-import { calculateContentHash, getMimeType, XriftApiError } from '@xrift/sdk';
+import { uploadItemFromDirectory } from '@xrift/sdk/node';
 import {
   loadProjectConfig,
+  updateProjectConfig,
   loadItemMetadata,
   saveItemMetadata,
   validateDistDir,
   scanDirectory,
 } from './project-config.js';
-import { getAuthenticatedClient } from './api.js';
+import { getVerifiedToken } from './api.js';
+import { API_BASE_URL } from './constants.js';
 import { logVerbose } from './logger.js';
 import { runSecurityCheck, printResults } from './check.js';
-import type {
-  CreateItemResponse,
-  SignedUrlResponse,
-  UploadFileInfo,
-  ItemUploadUrlsRequest,
-  ItemUploadUrlsResponse,
-  CompleteItemUploadResponse,
-} from '../types/index.js';
 
 /**
  * アイテムをアップロード
@@ -67,7 +61,7 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
     await validateDistDir(distDir);
     spinner.succeed(chalk.green('Dist directory validated'));
 
-    // 3. ファイルをスキャン
+    // 3. ファイルをスキャン（セキュリティチェック用）
     spinner = ora('Scanning files...').start();
     const files = await scanDirectory(distDir, itemConfig.ignore);
 
@@ -101,13 +95,11 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
     }
 
     // 3.6. サムネイル設定を確認
-    let thumbnailPath: string | undefined;
     if (itemConfig.thumbnailPath) {
       const configuredPath = path.join(distDir, itemConfig.thumbnailPath);
       try {
         const stat = await fs.stat(configuredPath);
         if (stat.isFile()) {
-          thumbnailPath = itemConfig.thumbnailPath;
           console.log(chalk.green(`✓ Thumbnail: ${itemConfig.thumbnailPath}`));
         } else {
           throw new Error(`${itemConfig.thumbnailPath} is not a file`);
@@ -122,131 +114,41 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
       }
     }
 
-    // 4. ファイル情報を準備
-    const uploadFiles: UploadFileInfo[] = await Promise.all(
-      files.map(async (filePath) => {
-        const stat = await fs.stat(filePath);
-        const relativePath = path.relative(distDir, filePath);
-        return {
-          localPath: filePath,
-          remotePath: relativePath.replace(/\\/g, '/'),
-          size: stat.size,
-        };
-      })
-    );
-
-    // 5. 認証済みクライアントを取得
+    // 4. 認証トークンを取得
     spinner = ora('Verifying credentials...').start();
-    const client = await getAuthenticatedClient();
+    const token = await getVerifiedToken();
     spinner.succeed(chalk.green('Credentials verified'));
 
-    // 6. アイテムメタデータを確認（新規/更新判定）
+    // 5. アイテムメタデータを確認（新規/更新判定）
     const existingMetadata = await loadItemMetadata(cwd);
-    let itemId: string;
-    let itemName: string;
-    let itemDescription: string | undefined;
+    let itemId: string | undefined;
 
     if (existingMetadata) {
       logVerbose(`\nUpdating existing item (ID: ${existingMetadata.id})`);
       itemId = existingMetadata.id;
-
-      // 更新時は設定ファイルから名前と説明を取得
-      itemName = itemConfig.title || path.basename(cwd);
-      itemDescription = itemConfig.description;
     } else {
-      // 新規作成時はメタデータを収集
-      const metadata = await collectItemMetadata(
-        {
-          title: itemConfig.title,
-          description: itemConfig.description,
-        },
-        path.basename(cwd)
-      );
-      itemName = metadata.title;
-      itemDescription = metadata.description;
-
-      // 新規アイテム作成
-      spinner = ora('Creating new item...').start();
-
-      try {
-        const response: CreateItemResponse = await client.items.create();
-
-        itemId = response.id;
-        spinner.succeed(chalk.green(`New item created (ID: ${itemId})`));
-      } catch (error) {
-        spinner.fail(chalk.red('Failed to create item'));
-        throw error;
+      // 新規作成時: title が未設定ならインタラクティブに入力して xrift.json に保存
+      if (!itemConfig.title) {
+        const metadata = await collectItemMetadata(
+          {
+            title: itemConfig.title,
+            description: itemConfig.description,
+          },
+          path.basename(cwd)
+        );
+        // xrift.json に保存
+        await updateProjectConfig(cwd, {
+          item: { title: metadata.title, description: metadata.description },
+        } as Partial<typeof config>);
+      } else {
+        console.log(chalk.blue(`\n📝 Item title: ${itemConfig.title}`));
+        if (itemConfig.description) {
+          console.log(chalk.blue(`   Description: ${itemConfig.description}`));
+        }
       }
     }
 
-    // 7. contentHashとfileSizeを計算
-    spinner = ora('Calculating file hashes...').start();
-    const hashFiles = await Promise.all(
-      uploadFiles.map(async (f) => ({
-        remotePath: f.remotePath,
-        data: new Uint8Array(await fs.readFile(f.localPath)),
-      }))
-    );
-    const contentHash = await calculateContentHash(hashFiles, {
-      permissions: itemConfig.permissions,
-    });
-    const fileSize = calculateTotalSize(uploadFiles);
-    spinner.succeed(
-      chalk.green(`Hash calculated (contentHash: ${contentHash}, fileSize: ${fileSize} bytes)`)
-    );
-
-    // 8. 署名付きURLを取得
-    spinner = ora('Fetching upload URLs...').start();
-
-    let signedUrls: SignedUrlResponse[];
-    let versionId: string;
-    let versionNumber: number;
-    try {
-      const uploadUrlsRequest: ItemUploadUrlsRequest = {
-        name: itemName,
-        description: itemDescription,
-        thumbnailPath: thumbnailPath,
-        contentHash,
-        fileSize,
-        files: uploadFiles.map((f) => ({
-          path: f.remotePath,
-          contentType: getMimeType(f.localPath),
-        })),
-        permissions: itemConfig.permissions,
-      };
-
-      const response: ItemUploadUrlsResponse = await client.items.getUploadUrls(
-        itemId,
-        uploadUrlsRequest
-      );
-
-      signedUrls = response.uploadUrls;
-      versionId = response.versionId;
-      versionNumber = response.versionNumber;
-
-      spinner.succeed(
-        chalk.green(
-          `Retrieved ${signedUrls.length} upload URLs (version: ${versionNumber})`
-        )
-      );
-
-      if (signedUrls.length > 0) {
-        logVerbose(`Debug: First URL structure: ${JSON.stringify(signedUrls[0], null, 2)}`);
-      }
-      logVerbose(`Version ID: ${versionId}`);
-    } catch (error) {
-      spinner.fail(chalk.red('Failed to retrieve upload URLs'));
-      if (error instanceof XriftApiError && error.responseBody) {
-        const errorData = error.responseBody as Record<string, unknown>;
-        const errorMessage = errorData.error
-          ? String(errorData.error)
-          : JSON.stringify(errorData);
-        console.error(chalk.red(`Backend error: ${errorMessage}`));
-      }
-      throw error;
-    }
-
-    // 9. ファイルをアップロード
+    // 6. SDK の uploadItemFromDirectory に委譲
     console.log(chalk.blue('\n📤 Uploading files...\n'));
 
     const progressBar = new cliProgress.SingleBar(
@@ -259,70 +161,38 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
       cliProgress.Presets.shades_classic
     );
 
-    progressBar.start(uploadFiles.length, 0, { filename: '' });
+    let progressStarted = false;
 
-    for (let i = 0; i < uploadFiles.length; i++) {
-      const fileInfo = uploadFiles[i];
-      const signedUrl = signedUrls[i];
+    const result = await uploadItemFromDirectory(cwd, {
+      token,
+      baseUrl: API_BASE_URL,
+      itemId,
+      onProgress: (progress) => {
+        if (!progressStarted) {
+          progressBar.start(progress.total, 0, { filename: '' });
+          progressStarted = true;
+        }
+        progressBar.update(progress.completed, { filename: progress.currentFile });
+      },
+    });
 
-      progressBar.update(i, { filename: fileInfo.remotePath });
-
-      try {
-        const fileBuffer = await fs.readFile(fileInfo.localPath);
-
-        await fetch(signedUrl.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': getMimeType(fileInfo.localPath),
-            'Content-Length': String(fileInfo.size),
-          },
-          body: fileBuffer,
-        });
-      } catch (error) {
-        progressBar.stop();
-        console.error(chalk.red(`\n❌ Failed to upload ${fileInfo.remotePath}`));
-        throw error;
-      }
+    if (progressStarted) {
+      progressBar.stop();
     }
 
-    progressBar.update(uploadFiles.length, { filename: 'Done' });
-    progressBar.stop();
-
-    // 10. アップロード完了通知
-    spinner = ora('Notifying upload completion...').start();
-    try {
-      const completeResponse: CompleteItemUploadResponse = await client.items.complete(
-        itemId,
-        versionId
-      );
-
-      spinner.succeed(
-        chalk.green(
-          `Upload completed (version: ${completeResponse.versionNumber})`
-        )
-      );
-      logVerbose(`Status: ${completeResponse.status}`);
-      logVerbose(`Item name: ${completeResponse.name}`);
-    } catch (error) {
-      spinner.fail(chalk.red('Failed to notify upload completion'));
-      if (error instanceof XriftApiError && error.responseBody) {
-        console.error(chalk.red(`Backend error: ${JSON.stringify(error.responseBody)}`));
-      }
-      throw error;
-    }
-
-    // 11. メタデータを保存
+    // 7. メタデータを保存
     await saveItemMetadata(
       {
-        id: itemId,
+        id: result.itemId,
         createdAt: existingMetadata?.createdAt || new Date().toISOString(),
         lastUploadedAt: new Date().toISOString(),
       },
       cwd
     );
 
-    console.log(chalk.green(`\n✅ Item upload complete: ${uploadFiles.length} files`));
-    logVerbose(`Item ID: ${itemId}`);
+    console.log(chalk.green(`\n✅ Item upload complete (version: ${result.versionNumber})`));
+    logVerbose(`Item ID: ${result.itemId}`);
+    logVerbose(`Content hash: ${result.contentHash}`);
   } catch (error) {
     if (spinner) {
       spinner.fail(chalk.red('An error occurred'));
@@ -334,13 +204,6 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
 
     throw error;
   }
-}
-
-/**
- * 全ファイルのサイズ合計を計算
- */
-function calculateTotalSize(uploadFiles: UploadFileInfo[]): number {
-  return uploadFiles.reduce((total, file) => total + file.size, 0);
 }
 
 /**

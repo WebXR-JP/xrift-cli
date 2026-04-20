@@ -7,19 +7,10 @@ export type {
   PhysicsConfig,
   CameraConfig,
   OutputBufferType,
-  SignedUrlResponse,
   WorldPermissions,
-  CreateWorldRequest,
-  CreateWorldResponse,
-  WorldUploadUrlsRequest,
-  WorldUploadUrlsResponse,
-  CompleteWorldUploadResponse,
   ItemPermissions,
-  CreateItemRequest,
-  CreateItemResponse,
-  ItemUploadUrlsRequest,
-  ItemUploadUrlsResponse,
-  CompleteItemUploadResponse,
+  WorldUploadResult,
+  ItemUploadResult,
 } from '@xrift/sdk';
 
 // CLI 固有の型定義
@@ -27,9 +18,9 @@ export type {
 import type {
   PhysicsConfig,
   CameraConfig,
+  OutputBufferType,
   WorldPermissions,
   ItemPermissions,
-  OutputBufferType,
 } from '@xrift/sdk';
 
 export interface XriftConfig {
@@ -71,12 +62,6 @@ export interface ItemMetadata {
 export interface AuthConfig {
   token: string;
   expiresAt?: string;
-}
-
-export interface UploadFileInfo {
-  localPath: string;
-  remotePath: string;
-  size: number;
 }
 
 export interface UpdateWorldMetadataRequest {
