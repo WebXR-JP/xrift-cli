@@ -2,27 +2,35 @@
  * XRift CLI Type Definitions
  */
 
-export interface PhysicsConfig {
-  gravity?: number;
-  allowInfiniteJump?: boolean;
-}
+// SDK から API 関連の型を re-export
+export type {
+  PhysicsConfig,
+  CameraConfig,
+  OutputBufferType,
+  SignedUrlResponse,
+  WorldPermissions,
+  CreateWorldRequest,
+  CreateWorldResponse,
+  WorldUploadUrlsRequest,
+  WorldUploadUrlsResponse,
+  CompleteWorldUploadResponse,
+  ItemPermissions,
+  CreateItemRequest,
+  CreateItemResponse,
+  ItemUploadUrlsRequest,
+  ItemUploadUrlsResponse,
+  CompleteItemUploadResponse,
+} from '@xrift/sdk';
 
-export interface CameraConfig {
-  near?: number;
-  far?: number;
-}
+// CLI 固有の型定義
 
-export interface WorldPermissions {
-  allowedDomains?: string[];
-  allowedCodeRules?: string[];
-}
-
-export interface ItemPermissions {
-  allowedDomains?: string[];
-  allowedCodeRules?: string[];
-}
-
-export type OutputBufferType = 'UnsignedByteType' | 'HalfFloatType' | 'FloatType';
+import type {
+  PhysicsConfig,
+  CameraConfig,
+  WorldPermissions,
+  ItemPermissions,
+  OutputBufferType,
+} from '@xrift/sdk';
 
 export interface XriftConfig {
   world?: {
@@ -71,73 +79,10 @@ export interface UploadFileInfo {
   size: number;
 }
 
-export interface SignedUrlResponse {
-  path: string;
-  uploadUrl: string;
-  publicUrl: string;
-  expiresAt: string;
-}
-
-export interface CreateWorldRequest {
-  // Phase 3-2: 空のリクエストボディ
-}
-
-export interface CreateWorldResponse {
-  id: string;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UploadUrlsRequest {
-  name: string; // ワールド名（必須）
-  description?: string; // 説明（任意）
-  thumbnailPath?: string; // サムネイルパス（任意）
-  physics?: PhysicsConfig; // 物理設定（任意）
-  camera?: CameraConfig; // カメラ設定（任意）
-  permissions?: WorldPermissions; // セキュリティ権限宣言（任意）
-  outputBufferType?: OutputBufferType; // WebGLRenderer の出力バッファタイプ（任意）
-  contentHash: string;
-  fileSize: number;
-  files: Array<{
-    path: string;
-    contentType: string;
-  }>;
-}
-
-export interface UploadUrlsResponse {
-  uploadUrls: SignedUrlResponse[];
-  versionId: string;
-  contentHash: string;
-  versionNumber: number;
-}
-
-export interface CompleteUploadRequest {
-  versionId: string;
-}
-
-export interface CompleteUploadResponse {
-  versionId: string;
-  worldId: string;
-  name: string;
-  description?: string;
-  contentHash: string;
-  fileSize: number;
-  status: string;
-  versionNumber: number;
-  owner: {
-    id: string;
-    displayName: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface UpdateWorldMetadataRequest {
   name?: string; // タイトル更新時は name を使用
   description?: string;
 }
-
 
 export interface VerifyTokenResponse {
   valid: boolean;
@@ -159,54 +104,4 @@ export interface ExchangeTokenResponse {
     email: string;
     displayName: string;
   };
-}
-
-// Item types
-
-export interface CreateItemRequest {
-  // ItemVersion ベース: 空のリクエストボディ
-}
-
-export interface CreateItemResponse {
-  id: string;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ItemUploadUrlsRequest {
-  name: string; // アイテム名（必須）
-  description?: string; // 説明（任意）
-  thumbnailPath?: string; // サムネイルパス（任意）
-  contentHash: string; // 12文字の16進数
-  fileSize: number;
-  files: Array<{
-    path: string;
-    contentType: string;
-  }>;
-  permissions?: ItemPermissions; // セキュリティ権限宣言（任意）
-}
-
-export interface ItemUploadUrlsResponse {
-  uploadUrls: SignedUrlResponse[];
-  versionId: string;
-  contentHash: string;
-  versionNumber: number;
-}
-
-export interface CompleteItemUploadRequest {
-  versionId: string;
-}
-
-export interface CompleteItemUploadResponse {
-  versionId: string;
-  itemId: string;
-  name: string;
-  description?: string;
-  contentHash: string;
-  fileSize: number;
-  status: string;
-  versionNumber: number;
-  createdAt: string;
-  updatedAt: string;
 }

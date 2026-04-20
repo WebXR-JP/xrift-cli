@@ -3,8 +3,8 @@ import fs from 'node:fs/promises';
 import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import cliProgress from 'cli-progress';
-import axios from 'axios';
 import prompts from 'prompts';
+import { calculateContentHash, getMimeType, XriftApiError } from '@xrift/sdk';
 import {
   loadProjectConfig,
   loadItemMetadata,
@@ -13,18 +13,14 @@ import {
   scanDirectory,
 } from './project-config.js';
 import { getAuthenticatedClient } from './api.js';
-import { ITEM_CREATE_PATH, ITEM_UPDATE_PATH, ITEM_COMPLETE_PATH } from './constants.js';
 import { logVerbose } from './logger.js';
 import { runSecurityCheck, printResults } from './check.js';
-import { calculateContentHash } from './hash.js';
 import type {
-  CreateItemRequest,
   CreateItemResponse,
   SignedUrlResponse,
   UploadFileInfo,
   ItemUploadUrlsRequest,
   ItemUploadUrlsResponse,
-  CompleteItemUploadRequest,
   CompleteItemUploadResponse,
 } from '../types/index.js';
 
@@ -169,15 +165,13 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
       itemName = metadata.title;
       itemDescription = metadata.description;
 
-      // 新規アイテム作成（空のリクエストボディ）
+      // 新規アイテム作成
       spinner = ora('Creating new item...').start();
 
       try {
-        const createRequest: CreateItemRequest = {};
+        const response: CreateItemResponse = await client.items.create();
 
-        const response = await client.post<CreateItemResponse>(ITEM_CREATE_PATH, createRequest);
-
-        itemId = response.data.id;
+        itemId = response.id;
         spinner.succeed(chalk.green(`New item created (ID: ${itemId})`));
       } catch (error) {
         spinner.fail(chalk.red('Failed to create item'));
@@ -187,7 +181,13 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
 
     // 7. contentHashとfileSizeを計算
     spinner = ora('Calculating file hashes...').start();
-    const contentHash = await calculateContentHash(uploadFiles, {
+    const hashFiles = await Promise.all(
+      uploadFiles.map(async (f) => ({
+        remotePath: f.remotePath,
+        data: new Uint8Array(await fs.readFile(f.localPath)),
+      }))
+    );
+    const contentHash = await calculateContentHash(hashFiles, {
       permissions: itemConfig.permissions,
     });
     const fileSize = calculateTotalSize(uploadFiles);
@@ -215,14 +215,14 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
         permissions: itemConfig.permissions,
       };
 
-      const response = await client.post<ItemUploadUrlsResponse>(
-        `${ITEM_UPDATE_PATH}/${itemId}/upload-urls`,
+      const response: ItemUploadUrlsResponse = await client.items.getUploadUrls(
+        itemId,
         uploadUrlsRequest
       );
 
-      signedUrls = response.data.uploadUrls;
-      versionId = response.data.versionId;
-      versionNumber = response.data.versionNumber;
+      signedUrls = response.uploadUrls;
+      versionId = response.versionId;
+      versionNumber = response.versionNumber;
 
       spinner.succeed(
         chalk.green(
@@ -236,10 +236,10 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
       logVerbose(`Version ID: ${versionId}`);
     } catch (error) {
       spinner.fail(chalk.red('Failed to retrieve upload URLs'));
-      if (axios.isAxiosError(error) && error.response) {
-        const errorData = error.response.data;
-        const errorMessage = typeof errorData === 'object' && errorData.error
-          ? errorData.error
+      if (error instanceof XriftApiError && error.responseBody) {
+        const errorData = error.responseBody as Record<string, unknown>;
+        const errorMessage = errorData.error
+          ? String(errorData.error)
           : JSON.stringify(errorData);
         console.error(chalk.red(`Backend error: ${errorMessage}`));
       }
@@ -270,13 +270,13 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
       try {
         const fileBuffer = await fs.readFile(fileInfo.localPath);
 
-        await axios.put(signedUrl.uploadUrl, fileBuffer, {
+        await fetch(signedUrl.uploadUrl, {
+          method: 'PUT',
           headers: {
             'Content-Type': getMimeType(fileInfo.localPath),
-            'Content-Length': fileInfo.size,
+            'Content-Length': String(fileInfo.size),
           },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
+          body: fileBuffer,
         });
       } catch (error) {
         progressBar.stop();
@@ -291,26 +291,22 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
     // 10. アップロード完了通知
     spinner = ora('Notifying upload completion...').start();
     try {
-      const completeRequest: CompleteItemUploadRequest = {
-        versionId,
-      };
-
-      const completeResponse = await client.post<CompleteItemUploadResponse>(
-        `${ITEM_COMPLETE_PATH}/${itemId}/complete`,
-        completeRequest
+      const completeResponse: CompleteItemUploadResponse = await client.items.complete(
+        itemId,
+        versionId
       );
 
       spinner.succeed(
         chalk.green(
-          `Upload completed (version: ${completeResponse.data.versionNumber})`
+          `Upload completed (version: ${completeResponse.versionNumber})`
         )
       );
-      logVerbose(`Status: ${completeResponse.data.status}`);
-      logVerbose(`Item name: ${completeResponse.data.name}`);
+      logVerbose(`Status: ${completeResponse.status}`);
+      logVerbose(`Item name: ${completeResponse.name}`);
     } catch (error) {
       spinner.fail(chalk.red('Failed to notify upload completion'));
-      if (axios.isAxiosError(error) && error.response) {
-        console.error(chalk.red(`Backend error: ${JSON.stringify(error.response.data)}`));
+      if (error instanceof XriftApiError && error.responseBody) {
+        console.error(chalk.red(`Backend error: ${JSON.stringify(error.responseBody)}`));
       }
       throw error;
     }
@@ -345,30 +341,6 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
  */
 function calculateTotalSize(uploadFiles: UploadFileInfo[]): number {
   return uploadFiles.reduce((total, file) => total + file.size, 0);
-}
-
-/**
- * ファイルのMIMEタイプを取得
- */
-function getMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-
-  const mimeTypes: Record<string, string> = {
-    '.glb': 'model/gltf-binary',
-    '.gltf': 'model/gltf+json',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.webp': 'image/webp',
-    '.json': 'application/json',
-    '.js': 'application/javascript',
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.txt': 'text/plain',
-    '.bin': 'application/octet-stream',
-  };
-
-  return mimeTypes[ext] || 'application/octet-stream';
 }
 
 /**

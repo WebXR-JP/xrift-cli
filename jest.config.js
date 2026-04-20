@@ -3,9 +3,10 @@ export default {
   preset: 'ts-jest/presets/default-esm',
   extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
+  resolver: '<rootDir>/jest-resolver.cjs',
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@xrift/code-security$': '<rootDir>/node_modules/@xrift/code-security/dist/index.js',
+    '^@xrift/sdk$': '<rootDir>/node_modules/@xrift/sdk/dist/cjs/index.cjs',
   },
   transform: {
     '^.+\\.ts$': [
@@ -17,7 +18,7 @@ export default {
         },
       },
     ],
-    'node_modules/@xrift/code-security/.+\\.js$': [
+    'node_modules/@xrift/(code-security|sdk)/.+\\.(js|cjs)$': [
       'ts-jest',
       {
         useESM: true,
@@ -25,7 +26,7 @@ export default {
     ],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!@xrift/code-security/)',
+    'node_modules/(?!@xrift/(code-security|sdk)/)',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
   testMatch: [

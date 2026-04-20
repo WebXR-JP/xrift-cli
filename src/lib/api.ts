@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from 'axios';
+import { XriftClient } from '@xrift/sdk';
 import {
   API_BASE_URL,
   AUTH_VERIFY_PATH,
@@ -12,38 +12,29 @@ import type {
 } from '../types/index.js';
 
 /**
- * API クライアントのインスタンスを作成
- */
-export function createApiClient(token?: string): AxiosInstance {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  return axios.create({
-    baseURL: API_BASE_URL,
-    headers,
-    timeout: 30000,
-  });
-}
-
-/**
  * トークンを検証
  */
 export async function verifyToken(token: string): Promise<VerifyTokenResponse> {
-  const client = createApiClient(token);
-
   try {
-    const response = await client.get<VerifyTokenResponse>(AUTH_VERIFY_PATH);
-    return response.data;
+    const response = await fetch(`${API_BASE_URL}${AUTH_VERIFY_PATH}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 401) {
+      return { valid: false };
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to verify token: ${response.statusText}`);
+    }
+
+    return (await response.json()) as VerifyTokenResponse;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401) {
-        return { valid: false };
-      }
+    if (error instanceof TypeError) {
       throw new Error(`Failed to verify token: ${error.message}`);
     }
     throw error;
@@ -53,7 +44,7 @@ export async function verifyToken(token: string): Promise<VerifyTokenResponse> {
 /**
  * 認証済みAPIクライアントを取得
  */
-export async function getAuthenticatedClient(): Promise<AxiosInstance> {
+export async function getAuthenticatedClient(): Promise<XriftClient> {
   const token = await getToken();
 
   if (!token) {
@@ -66,7 +57,7 @@ export async function getAuthenticatedClient(): Promise<AxiosInstance> {
     throw new Error('Token is invalid. Please log in again.');
   }
 
-  return createApiClient(token);
+  return new XriftClient({ token, baseUrl: API_BASE_URL });
 }
 
 /**
@@ -75,23 +66,36 @@ export async function getAuthenticatedClient(): Promise<AxiosInstance> {
 export async function exchangeCodeForToken(
   code: string
 ): Promise<ExchangeTokenResponse> {
-  const client = createApiClient();
-
   try {
     const request: ExchangeTokenRequest = { code };
-    const response = await client.post<ExchangeTokenResponse>(
-      AUTH_TOKEN_EXCHANGE_PATH,
-      request
-    );
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401) {
-        throw new Error('Authentication code is invalid or expired');
+    const response = await fetch(
+      `${API_BASE_URL}${AUTH_TOKEN_EXCHANGE_PATH}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
       }
+    );
+
+    if (response.status === 401) {
+      throw new Error('Authentication code is invalid or expired');
+    }
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
       throw new Error(
-        `Failed to retrieve token: ${error.response?.data?.message || error.message}`
+        `Failed to retrieve token: ${data?.message || response.statusText}`
       );
+    }
+
+    return (await response.json()) as ExchangeTokenResponse;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(`Failed to retrieve token: ${error.message}`);
     }
     throw error;
   }
