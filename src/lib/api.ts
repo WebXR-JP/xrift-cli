@@ -1,4 +1,3 @@
-import { XriftClient } from '@xrift/sdk';
 import {
   API_BASE_URL,
   AUTH_VERIFY_PATH,
@@ -42,9 +41,9 @@ export async function verifyToken(token: string): Promise<VerifyTokenResponse> {
 }
 
 /**
- * 認証済みAPIクライアントを取得
+ * 検証済みトークンを取得
  */
-export async function getAuthenticatedClient(): Promise<XriftClient> {
+export async function getVerifiedToken(): Promise<string> {
   const token = await getToken();
 
   if (!token) {
@@ -57,7 +56,7 @@ export async function getAuthenticatedClient(): Promise<XriftClient> {
     throw new Error('Token is invalid. Please log in again.');
   }
 
-  return new XriftClient({ token, baseUrl: API_BASE_URL });
+  return token;
 }
 
 /**

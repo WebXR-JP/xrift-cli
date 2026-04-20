@@ -54,6 +54,29 @@ export async function loadProjectConfig(cwd: string = process.cwd()): Promise<Xr
 }
 
 /**
+ * xrift.json を更新（指定されたフィールドをマージして書き戻す）
+ */
+export async function updateProjectConfig(
+  cwd: string,
+  updates: Partial<XriftConfig>
+): Promise<void> {
+  const configPath = path.join(cwd, PROJECT_CONFIG_FILE);
+  const data = await fs.readFile(configPath, 'utf-8');
+  const config = JSON.parse(data) as Record<string, unknown>;
+
+  // shallow merge for top-level keys (world / item)
+  for (const [key, value] of Object.entries(updates)) {
+    if (typeof value === 'object' && value !== null && typeof config[key] === 'object' && config[key] !== null) {
+      config[key] = { ...(config[key] as Record<string, unknown>), ...(value as Record<string, unknown>) };
+    } else {
+      config[key] = value;
+    }
+  }
+
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+}
+
+/**
  * .xrift ディレクトリを作成
  */
 async function ensureMetaDir(cwd: string = process.cwd()): Promise<string> {

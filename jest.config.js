@@ -7,6 +7,7 @@ export default {
   moduleNameMapper: {
     '^@xrift/code-security$': '<rootDir>/node_modules/@xrift/code-security/dist/index.js',
     '^@xrift/sdk$': '<rootDir>/node_modules/@xrift/sdk/dist/cjs/index.cjs',
+    '^@xrift/sdk/node$': '<rootDir>/node_modules/@xrift/sdk/dist/cjs/node/index.cjs',
   },
   transform: {
     '^.+\\.ts$': [

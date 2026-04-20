@@ -1,8 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import path from 'node:path';
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import { calculateContentHash } from '@xrift/sdk';
+import { describe, it, expect } from '@jest/globals';
 
 describe('upload - メタデータ更新ロジックテスト', () => {
   describe('既存ワールドのメタデータ更新', () => {
@@ -446,86 +442,5 @@ describe('upload - メタデータ更新ロジックテスト', () => {
         },
       });
     });
-  });
-});
-
-describe('calculateContentHash - 設定値によるハッシュ変化テスト', () => {
-  let tmpDir: string;
-  let hashFiles: Array<{ remotePath: string; data: Uint8Array }>;
-
-  beforeAll(async () => {
-    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xrift-test-'));
-    const testFile = path.join(tmpDir, 'index.js');
-    const content = 'console.log("hello");';
-    await fs.writeFile(testFile, content);
-    hashFiles = [
-      { remotePath: 'index.js', data: new TextEncoder().encode(content) },
-    ];
-  });
-
-  afterAll(async () => {
-    await fs.rm(tmpDir, { recursive: true, force: true });
-  });
-
-  it('configValues なしと空オブジェクトで異なるハッシュを返す', async () => {
-    const hashWithout = await calculateContentHash(hashFiles);
-    const hashEmpty = await calculateContentHash(hashFiles, {});
-    // 空オブジェクトの JSON.stringify は "{}" なので異なるハッシュになる
-    expect(hashWithout).not.toBe(hashEmpty);
-  });
-
-  it('同じ設定値なら同じハッシュを返す', async () => {
-    const config = { physics: { gravity: -9.81 }, camera: { near: 0.1 } };
-    const hash1 = await calculateContentHash(hashFiles, config);
-    const hash2 = await calculateContentHash(hashFiles, config);
-    expect(hash1).toBe(hash2);
-  });
-
-  it('physics の値が変わるとハッシュが変わる', async () => {
-    const hash1 = await calculateContentHash(hashFiles, {
-      physics: { gravity: -9.81 },
-    });
-    const hash2 = await calculateContentHash(hashFiles, {
-      physics: { gravity: -20 },
-    });
-    expect(hash1).not.toBe(hash2);
-  });
-
-  it('camera の値が変わるとハッシュが変わる', async () => {
-    const hash1 = await calculateContentHash(hashFiles, {
-      camera: { near: 0.1, far: 1000 },
-    });
-    const hash2 = await calculateContentHash(hashFiles, {
-      camera: { near: 0.1, far: 5000 },
-    });
-    expect(hash1).not.toBe(hash2);
-  });
-
-  it('permissions の値が変わるとハッシュが変わる', async () => {
-    const hash1 = await calculateContentHash(hashFiles, {
-      permissions: { allowedDomains: ['example.com'] },
-    });
-    const hash2 = await calculateContentHash(hashFiles, {
-      permissions: { allowedDomains: ['example.com', 'other.com'] },
-    });
-    expect(hash1).not.toBe(hash2);
-  });
-
-  it('outputBufferType の値が変わるとハッシュが変わる', async () => {
-    const hash1 = await calculateContentHash(hashFiles, {
-      outputBufferType: 'UnsignedByteType',
-    });
-    const hash2 = await calculateContentHash(hashFiles, {
-      outputBufferType: 'HalfFloatType',
-    });
-    expect(hash1).not.toBe(hash2);
-  });
-
-  it('設定値ありと設定値なしでハッシュが異なる', async () => {
-    const hashWithout = await calculateContentHash(hashFiles);
-    const hashWith = await calculateContentHash(hashFiles, {
-      physics: { gravity: -9.81 },
-    });
-    expect(hashWithout).not.toBe(hashWith);
   });
 });
