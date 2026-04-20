@@ -24,6 +24,14 @@ export type {
 
 // CLI 固有の型定義
 
+import type {
+  PhysicsConfig,
+  CameraConfig,
+  WorldPermissions,
+  ItemPermissions,
+  OutputBufferType,
+} from '@xrift/sdk';
+
 export interface XriftConfig {
   world?: {
     distDir: string;
@@ -32,10 +40,10 @@ export interface XriftConfig {
     thumbnailPath?: string;
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するファイル/ディレクトリのglobパターン
-    physics?: import('@xrift/sdk').PhysicsConfig; // 物理設定
-    camera?: import('@xrift/sdk').CameraConfig; // カメラ設定
-    permissions?: import('@xrift/sdk').WorldPermissions; // セキュリティ権限宣言
-    outputBufferType?: import('@xrift/sdk').OutputBufferType; // WebGLRenderer の出力バッファタイプ
+    physics?: PhysicsConfig; // 物理設定
+    camera?: CameraConfig; // カメラ設定
+    permissions?: WorldPermissions; // セキュリティ権限宣言
+    outputBufferType?: OutputBufferType; // WebGLRenderer の出力バッファタイプ
   };
   item?: {
     distDir: string; // ビルド成果物のディレクトリ
@@ -44,7 +52,7 @@ export interface XriftConfig {
     thumbnailPath?: string; // サムネイルパス
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するglobパターン
-    permissions?: import('@xrift/sdk').ItemPermissions; // セキュリティ権限宣言
+    permissions?: ItemPermissions; // セキュリティ権限宣言
   };
 }
 
