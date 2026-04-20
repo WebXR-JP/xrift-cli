@@ -2,27 +2,27 @@
  * XRift CLI Type Definitions
  */
 
-export interface PhysicsConfig {
-  gravity?: number;
-  allowInfiniteJump?: boolean;
-}
+// SDK から API 関連の型を re-export
+export type {
+  PhysicsConfig,
+  CameraConfig,
+  OutputBufferType,
+  SignedUrlResponse,
+  WorldPermissions,
+  CreateWorldRequest,
+  CreateWorldResponse,
+  WorldUploadUrlsRequest,
+  WorldUploadUrlsResponse,
+  CompleteWorldUploadResponse,
+  ItemPermissions,
+  CreateItemRequest,
+  CreateItemResponse,
+  ItemUploadUrlsRequest,
+  ItemUploadUrlsResponse,
+  CompleteItemUploadResponse,
+} from '@xrift/sdk';
 
-export interface CameraConfig {
-  near?: number;
-  far?: number;
-}
-
-export interface WorldPermissions {
-  allowedDomains?: string[];
-  allowedCodeRules?: string[];
-}
-
-export interface ItemPermissions {
-  allowedDomains?: string[];
-  allowedCodeRules?: string[];
-}
-
-export type OutputBufferType = 'UnsignedByteType' | 'HalfFloatType' | 'FloatType';
+// CLI 固有の型定義
 
 export interface XriftConfig {
   world?: {
@@ -32,10 +32,10 @@ export interface XriftConfig {
     thumbnailPath?: string;
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するファイル/ディレクトリのglobパターン
-    physics?: PhysicsConfig; // 物理設定
-    camera?: CameraConfig; // カメラ設定
-    permissions?: WorldPermissions; // セキュリティ権限宣言
-    outputBufferType?: OutputBufferType; // WebGLRenderer の出力バッファタイプ
+    physics?: import('@xrift/sdk').PhysicsConfig; // 物理設定
+    camera?: import('@xrift/sdk').CameraConfig; // カメラ設定
+    permissions?: import('@xrift/sdk').WorldPermissions; // セキュリティ権限宣言
+    outputBufferType?: import('@xrift/sdk').OutputBufferType; // WebGLRenderer の出力バッファタイプ
   };
   item?: {
     distDir: string; // ビルド成果物のディレクトリ
@@ -44,7 +44,7 @@ export interface XriftConfig {
     thumbnailPath?: string; // サムネイルパス
     buildCommand?: string; // アップロード前に実行するビルドコマンド
     ignore?: string[]; // アップロード対象から除外するglobパターン
-    permissions?: ItemPermissions; // セキュリティ権限宣言
+    permissions?: import('@xrift/sdk').ItemPermissions; // セキュリティ権限宣言
   };
 }
 
@@ -71,73 +71,10 @@ export interface UploadFileInfo {
   size: number;
 }
 
-export interface SignedUrlResponse {
-  path: string;
-  uploadUrl: string;
-  publicUrl: string;
-  expiresAt: string;
-}
-
-export interface CreateWorldRequest {
-  // Phase 3-2: 空のリクエストボディ
-}
-
-export interface CreateWorldResponse {
-  id: string;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UploadUrlsRequest {
-  name: string; // ワールド名（必須）
-  description?: string; // 説明（任意）
-  thumbnailPath?: string; // サムネイルパス（任意）
-  physics?: PhysicsConfig; // 物理設定（任意）
-  camera?: CameraConfig; // カメラ設定（任意）
-  permissions?: WorldPermissions; // セキュリティ権限宣言（任意）
-  outputBufferType?: OutputBufferType; // WebGLRenderer の出力バッファタイプ（任意）
-  contentHash: string;
-  fileSize: number;
-  files: Array<{
-    path: string;
-    contentType: string;
-  }>;
-}
-
-export interface UploadUrlsResponse {
-  uploadUrls: SignedUrlResponse[];
-  versionId: string;
-  contentHash: string;
-  versionNumber: number;
-}
-
-export interface CompleteUploadRequest {
-  versionId: string;
-}
-
-export interface CompleteUploadResponse {
-  versionId: string;
-  worldId: string;
-  name: string;
-  description?: string;
-  contentHash: string;
-  fileSize: number;
-  status: string;
-  versionNumber: number;
-  owner: {
-    id: string;
-    displayName: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface UpdateWorldMetadataRequest {
   name?: string; // タイトル更新時は name を使用
   description?: string;
 }
-
 
 export interface VerifyTokenResponse {
   valid: boolean;
@@ -159,54 +96,4 @@ export interface ExchangeTokenResponse {
     email: string;
     displayName: string;
   };
-}
-
-// Item types
-
-export interface CreateItemRequest {
-  // ItemVersion ベース: 空のリクエストボディ
-}
-
-export interface CreateItemResponse {
-  id: string;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ItemUploadUrlsRequest {
-  name: string; // アイテム名（必須）
-  description?: string; // 説明（任意）
-  thumbnailPath?: string; // サムネイルパス（任意）
-  contentHash: string; // 12文字の16進数
-  fileSize: number;
-  files: Array<{
-    path: string;
-    contentType: string;
-  }>;
-  permissions?: ItemPermissions; // セキュリティ権限宣言（任意）
-}
-
-export interface ItemUploadUrlsResponse {
-  uploadUrls: SignedUrlResponse[];
-  versionId: string;
-  contentHash: string;
-  versionNumber: number;
-}
-
-export interface CompleteItemUploadRequest {
-  versionId: string;
-}
-
-export interface CompleteItemUploadResponse {
-  versionId: string;
-  itemId: string;
-  name: string;
-  description?: string;
-  contentHash: string;
-  fileSize: number;
-  status: string;
-  versionNumber: number;
-  createdAt: string;
-  updatedAt: string;
 }
