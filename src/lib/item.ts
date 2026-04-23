@@ -80,12 +80,12 @@ export async function uploadItem(cwd: string = process.cwd(), skipCheck?: boolea
         const checkResult = await runSecurityCheck(jsFiles, distDir, itemConfig.permissions);
         if (checkResult.hasReject) {
           spinner.fail('Security check failed');
-          printResults(checkResult);
+          printResults(checkResult, 'item');
           throw new Error('Upload aborted due to security violations');
         }
         if (checkResult.hasReview) {
           spinner.warn('Security check has warnings');
-          printResults(checkResult);
+          printResults(checkResult, 'item');
         } else {
           spinner.succeed('Security check passed');
         }
