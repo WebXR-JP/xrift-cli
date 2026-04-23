@@ -21,6 +21,12 @@ export interface CheckWorldOptions {
   json?: boolean;
 }
 
+export interface CheckItemOptions {
+  build?: boolean;
+  ignoreWarnings?: boolean;
+  json?: boolean;
+}
+
 export interface FileCheckResult {
   file: string;
   score: number;
@@ -122,6 +128,90 @@ export async function checkWorld(
 }
 
 /**
+ * 独立コマンド用: アイテムのセキュリティチェックを実行し結果を表示
+ * @returns 終了コード (0: 成功, 1: 失敗)
+ */
+export async function checkItem(
+  options: CheckItemOptions = {},
+  cwd: string = process.cwd()
+): Promise<number> {
+  if (!options.json) {
+    console.log(chalk.blue('🔒 Starting security check\n'));
+  }
+
+  try {
+    // 1. 設定読み込み
+    const spinner = !options.json ? ora('Loading config...').start() : null;
+    const config = await loadProjectConfig(cwd);
+
+    if (!config.item) {
+      spinner?.fail('No item config found in xrift.json');
+      throw new Error('item is not configured in xrift.json');
+    }
+
+    const itemConfig = config.item;
+    const distDir = path.resolve(cwd, itemConfig.distDir);
+    spinner?.succeed(chalk.green(`Config loaded: distDir=${itemConfig.distDir}`));
+
+    // 2. ビルドコマンド実行
+    if (options.build && itemConfig.buildCommand) {
+      if (!options.json) {
+        console.log(chalk.blue(`\n🔨 Running build command: ${itemConfig.buildCommand}\n`));
+      }
+      const { execSync } = await import('node:child_process');
+      execSync(itemConfig.buildCommand, { cwd, stdio: options.json ? 'ignore' : 'inherit' });
+      if (!options.json) {
+        console.log(chalk.green('\n✓ Build completed\n'));
+      }
+    }
+
+    // 3. distディレクトリ検証
+    await validateDistDir(distDir);
+
+    // 4. JSファイルをスキャン
+    const scanSpinner = !options.json ? ora('Scanning files...').start() : null;
+    const allFiles = await scanDirectory(distDir, itemConfig.ignore);
+    const jsFiles = allFiles.filter((f) => /\.(js|mjs)$/.test(f));
+
+    if (jsFiles.length === 0) {
+      scanSpinner?.succeed(chalk.yellow('No JS files to check'));
+      if (options.json) {
+        console.log(JSON.stringify({ results: [], hasReject: false, hasReview: false }));
+      }
+      return 0;
+    }
+
+    scanSpinner?.succeed(chalk.green(`Found ${jsFiles.length} JS files`));
+
+    // 5. セキュリティチェック実行
+    const checkResult = await runSecurityCheck(jsFiles, distDir, itemConfig.permissions);
+
+    // 6. 結果表示
+    if (options.json) {
+      console.log(JSON.stringify(checkResult, null, 2));
+    } else {
+      printResults(checkResult, 'item');
+    }
+
+    // 7. 終了コード判定
+    if (checkResult.hasReject) {
+      return 1;
+    }
+    if (checkResult.hasReview && !options.ignoreWarnings) {
+      return 0;
+    }
+    return 0;
+  } catch (error) {
+    if (options.json) {
+      console.log(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+    } else if (error instanceof Error) {
+      console.error(chalk.red(`\n❌ ${error.message}`));
+    }
+    return 1;
+  }
+}
+
+/**
  * upload 連携用: セキュリティチェックを実行し結果オブジェクトのみ返す
  */
 export async function runSecurityCheck(
@@ -193,7 +283,7 @@ export async function runSecurityCheck(
 /**
  * 結果をコンソールに表示
  */
-export function printResults(checkResult: SecurityCheckResult): void {
+export function printResults(checkResult: SecurityCheckResult, projectType: 'world' | 'item' = 'world'): void {
   // REVIEW / REJECT のファイルのみ詳細表示
   const issueResults = checkResult.results.filter((r) => r.verdict !== 'APPROVE');
 
@@ -257,7 +347,7 @@ export function printResults(checkResult: SecurityCheckResult): void {
     const neverAllowableViolations = [...violatedRules].filter((r) => (NEVER_ALLOWABLE_RULES as readonly string[]).includes(r));
 
     if (allowableViolations.length > 0 || neverAllowableViolations.length > 0) {
-      console.log(chalk.cyan('\n💡 Hint: Some rules can be allowed via world.permissions in xrift.json:'));
+      console.log(chalk.cyan(`\n💡 Hint: Some rules can be allowed via ${projectType}.permissions in xrift.json:`));
 
       const allowedCodeRulesExample: string[] = [];
 
@@ -284,7 +374,7 @@ export function printResults(checkResult: SecurityCheckResult): void {
           examplePermissions.allowedDomains = ['api.example.com'];
         }
 
-        const exampleJson = JSON.stringify({ world: { permissions: examplePermissions } }, null, 4);
+        const exampleJson = JSON.stringify({ [projectType]: { permissions: examplePermissions } }, null, 4);
         console.log(chalk.cyan('\n  Example:'));
         for (const line of exampleJson.split('\n')) {
           console.log(chalk.cyan(`  ${line}`));
