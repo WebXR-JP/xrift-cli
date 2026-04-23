@@ -343,7 +343,8 @@ export function printResults(checkResult: SecurityCheckResult, projectType: 'wor
       }
     }
 
-    const allowableViolations = [...violatedRules].filter((r) => (ALLOWABLE_RULES as readonly string[]).includes(r));
+    const domainRules = ['no-network-without-permission', 'no-unauthorized-domain'];
+    const allowableViolations = [...violatedRules].filter((r) => (ALLOWABLE_RULES as readonly string[]).includes(r) || domainRules.includes(r));
     const neverAllowableViolations = [...violatedRules].filter((r) => (NEVER_ALLOWABLE_RULES as readonly string[]).includes(r));
 
     if (allowableViolations.length > 0 || neverAllowableViolations.length > 0) {
@@ -352,7 +353,7 @@ export function printResults(checkResult: SecurityCheckResult, projectType: 'wor
       const allowedCodeRulesExample: string[] = [];
 
       for (const rule of allowableViolations) {
-        if (rule === 'no-network-without-permission') {
+        if (domainRules.includes(rule)) {
           console.log(chalk.cyan(`  - "${rule}" → Add target domains to allowedDomains`));
         } else {
           console.log(chalk.cyan(`  - "${rule}" → Add to allowedCodeRules to allow`));
@@ -370,7 +371,7 @@ export function printResults(checkResult: SecurityCheckResult, projectType: 'wor
         if (allowedCodeRulesExample.length > 0) {
           examplePermissions.allowedCodeRules = allowedCodeRulesExample;
         }
-        if (allowableViolations.includes('no-network-without-permission')) {
+        if (allowableViolations.some((r) => domainRules.includes(r))) {
           examplePermissions.allowedDomains = ['api.example.com'];
         }
 
