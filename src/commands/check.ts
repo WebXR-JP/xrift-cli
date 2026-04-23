@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { checkWorld } from '../lib/check.js';
+import { checkWorld, checkItem } from '../lib/check.js';
 import { detectProjectType } from '../lib/project-config.js';
 
 export const checkCommand = new Command('check')
@@ -13,6 +13,14 @@ export const checkCommand = new Command('check')
       const type = await detectProjectType();
       if (type === 'world') {
         const exitCode = await checkWorld({
+          build: options.build,
+          ignoreWarnings: options.ignoreWarnings,
+          json: options.json,
+        });
+        process.exit(exitCode);
+      }
+      if (type === 'item') {
+        const exitCode = await checkItem({
           build: options.build,
           ignoreWarnings: options.ignoreWarnings,
           json: options.json,
@@ -35,6 +43,21 @@ checkCommand
   .option('--json', 'Output results in JSON format')
   .action(async (options) => {
     const exitCode = await checkWorld({
+      build: options.build,
+      ignoreWarnings: options.ignoreWarnings,
+      json: options.json,
+    });
+    process.exit(exitCode);
+  });
+
+checkCommand
+  .command('item')
+  .description('Run security checks on item build artifacts')
+  .option('--build', 'Run build command before checking')
+  .option('--ignore-warnings', 'Ignore warnings and fail only on REJECT')
+  .option('--json', 'Output results in JSON format')
+  .action(async (options) => {
+    const exitCode = await checkItem({
       build: options.build,
       ignoreWarnings: options.ignoreWarnings,
       json: options.json,
