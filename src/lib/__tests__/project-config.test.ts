@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { DEFAULT_IGNORE_PATTERNS, filterFiles } from '@xrift/sdk';
 import {
   loadProjectConfig,
   loadWorldMetadata,
@@ -269,6 +270,40 @@ describe('project-config', () => {
       expect(files).toContain(path.join(distDir, 'world.glb'));
       expect(files).toContain(path.join(distDir, 'config.json'));
       expect(files).toContain(path.join(distDir, 'textures', 'texture1.png'));
+    });
+
+    it('ignoreパターンで除外できる', async () => {
+      const distDir = path.join(testDir, 'dist-ignore');
+      await fs.mkdir(distDir, { recursive: true });
+
+      await fs.writeFile(path.join(distDir, 'world.glb'), 'test');
+      await fs.writeFile(path.join(distDir, 'rapier-abc.js'), 'test');
+
+      // テンプレートが生成するのは `**/` 始まりの形（@xrift/sdk 0.1.2 以降で
+      // トップレベルのファイルにも当たる）
+      const files = await scanDirectory(distDir, ['**/rapier-*.js']);
+
+      expect(files).toEqual([path.join(distDir, 'world.glb')]);
+    });
+
+    it('除外判定がアップロード対象の判定と一致する', async () => {
+      const distDir = path.join(testDir, 'dist-parity');
+      await fs.mkdir(distDir, { recursive: true });
+
+      await fs.writeFile(path.join(distDir, 'world.glb'), 'test');
+      await fs.writeFile(path.join(distDir, 'chunk-a.js'), 'test');
+
+      // `?` は minimatch では1文字ワイルドカードだが、実際にアップロードを行う
+      // SDK の filterFiles ではリテラル扱い。ここで独自に判定すると
+      // 「アップロードされるのにセキュリティチェックを通らない」ファイルが生まれる
+      const patterns = ['chunk-?.js'];
+      const scanned = await scanDirectory(distDir, patterns);
+      const uploaded = filterFiles(
+        ['world.glb', 'chunk-a.js'],
+        [...DEFAULT_IGNORE_PATTERNS, ...patterns]
+      ).map((relativePath: string) => path.join(distDir, relativePath));
+
+      expect(scanned.sort()).toEqual(uploaded.sort());
     });
 
     it('空のディレクトリの場合は空配列を返す', async () => {
