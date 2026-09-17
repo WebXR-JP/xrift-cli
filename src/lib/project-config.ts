@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DEFAULT_IGNORE_PATTERNS, filterFiles } from '@xrift/sdk';
+import { DEFAULT_IGNORE_PATTERNS, filterFiles, parseWorldConfig, parseItemConfig } from '@xrift/sdk';
 import { PROJECT_CONFIG_FILE, PROJECT_META_DIR, WORLD_META_FILE, ITEM_META_FILE } from './constants.js';
 import type { XriftConfig, WorldMetadata, ItemMetadata } from '../types/index.js';
 
@@ -39,6 +39,16 @@ export async function loadProjectConfig(cwd: string = process.cwd()): Promise<Xr
 
     if (config.item && !config.item.distDir) {
       throw new Error('item.distDir is not configured in xrift.json');
+    }
+
+    // ignore の解釈は SDK に委譲する。アップロード時に除外を決めるのは SDK なので、
+    // ここで独自に解釈すると CLI が見ている一覧と実際に使われる一覧がズレる
+    // （例: 文字列以外の要素を SDK は捨てるが、CLI はそのまま渡して落ちる）
+    if (config.world) {
+      config.world.ignore = parseWorldConfig(data).ignore;
+    }
+    if (config.item) {
+      config.item.ignore = parseItemConfig(data).ignore;
     }
 
     return config;
