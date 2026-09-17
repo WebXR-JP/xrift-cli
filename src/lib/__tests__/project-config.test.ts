@@ -44,7 +44,23 @@ describe('project-config', () => {
       );
 
       const loaded = await loadProjectConfig(testDir);
-      expect(loaded).toEqual(config);
+      // ignore は SDK が実際に適用する一覧（既定値込み）で埋められる
+      expect(loaded).toEqual({
+        ...config,
+        world: { ...config.world, ignore: DEFAULT_IGNORE_PATTERNS },
+      });
+    });
+
+    it('ignore の解釈が SDK と一致する', async () => {
+      await fs.writeFile(
+        path.join(testDir, 'xrift.json'),
+        // 文字列以外が混ざっていても、SDK と同じく捨てられる
+        JSON.stringify({ world: { distDir: './dist', ignore: ['*.map', null, 42] } })
+      );
+
+      const loaded = await loadProjectConfig(testDir);
+
+      expect(loaded.world?.ignore).toEqual([...DEFAULT_IGNORE_PATTERNS, '*.map']);
     });
 
     it('設定ファイルが存在しない場合はエラー', async () => {
@@ -95,7 +111,11 @@ describe('project-config', () => {
       );
 
       const loaded = await loadProjectConfig(testDir);
-      expect(loaded).toEqual(config);
+      // ignore は SDK が実際に適用する一覧（既定値込み）で埋められる
+      expect(loaded).toEqual({
+        ...config,
+        world: { ...config.world, ignore: DEFAULT_IGNORE_PATTERNS },
+      });
       expect(loaded.world!.physics?.gravity).toBe(-9.81);
       expect(loaded.world!.physics?.allowInfiniteJump).toBe(true);
     });
@@ -118,7 +138,11 @@ describe('project-config', () => {
       );
 
       const loaded = await loadProjectConfig(testDir);
-      expect(loaded).toEqual(config);
+      // ignore は SDK が実際に適用する一覧（既定値込み）で埋められる
+      expect(loaded).toEqual({
+        ...config,
+        world: { ...config.world, ignore: DEFAULT_IGNORE_PATTERNS },
+      });
       expect(loaded.world!.camera?.near).toBe(0.1);
       expect(loaded.world!.camera?.far).toBe(1000);
     });
@@ -178,7 +202,11 @@ describe('project-config', () => {
       );
 
       const loaded = await loadProjectConfig(testDir);
-      expect(loaded).toEqual(config);
+      // ignore は SDK が実際に適用する一覧（既定値込み）で埋められる
+      expect(loaded).toEqual({
+        ...config,
+        world: { ...config.world, ignore: DEFAULT_IGNORE_PATTERNS },
+      });
       expect(loaded.world!.outputBufferType).toBe('HalfFloatType');
     });
 
