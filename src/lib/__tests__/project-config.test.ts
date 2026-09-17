@@ -279,8 +279,9 @@ describe('project-config', () => {
       await fs.writeFile(path.join(distDir, 'world.glb'), 'test');
       await fs.writeFile(path.join(distDir, 'rapier-abc.js'), 'test');
 
-      // `**/` 付きパターンの挙動は SDK 側のテストで担保する
-      const files = await scanDirectory(distDir, ['rapier-*.js']);
+      // テンプレートが生成するのは `**/` 始まりの形（@xrift/sdk 0.1.2 以降で
+      // トップレベルのファイルにも当たる）
+      const files = await scanDirectory(distDir, ['**/rapier-*.js']);
 
       expect(files).toEqual([path.join(distDir, 'world.glb')]);
     });
