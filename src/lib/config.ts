@@ -8,7 +8,7 @@ import type { AuthConfig } from '../types/index.js';
 export async function ensureConfigDir(): Promise<void> {
   try {
     await fs.mkdir(CONFIG_DIR, { recursive: true });
-  } catch (error) {
+  } catch {
     throw new Error(`Failed to create config directory: ${CONFIG_DIR}`);
   }
 }
@@ -20,7 +20,7 @@ export async function saveAuthConfig(config: AuthConfig): Promise<void> {
   await ensureConfigDir();
   try {
     await fs.writeFile(AUTH_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
-  } catch (error) {
+  } catch {
     throw new Error(`Failed to save auth config: ${AUTH_CONFIG_FILE}`);
   }
 }
@@ -32,7 +32,7 @@ export async function loadAuthConfig(): Promise<AuthConfig | null> {
   try {
     const data = await fs.readFile(AUTH_CONFIG_FILE, 'utf-8');
     return JSON.parse(data) as AuthConfig;
-  } catch (error) {
+  } catch {
     // ファイルが存在しない場合はnullを返す
     return null;
   }
@@ -44,7 +44,7 @@ export async function loadAuthConfig(): Promise<AuthConfig | null> {
 export async function deleteAuthConfig(): Promise<void> {
   try {
     await fs.unlink(AUTH_CONFIG_FILE);
-  } catch (error) {
+  } catch {
     // ファイルが存在しない場合は無視
   }
 }
