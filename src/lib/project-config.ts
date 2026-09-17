@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { minimatch } from 'minimatch';
+import { DEFAULT_IGNORE_PATTERNS, filterFiles } from '@xrift/sdk';
 import { PROJECT_CONFIG_FILE, PROJECT_META_DIR, WORLD_META_FILE, ITEM_META_FILE } from './constants.js';
 import type { XriftConfig, WorldMetadata, ItemMetadata } from '../types/index.js';
 
@@ -117,11 +117,6 @@ export async function saveWorldMetadata(
   await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
 }
 
-/** プラットフォーム側で提供される共有ライブラリのデフォルト除外パターン */
-const DEFAULT_IGNORE_PATTERNS = [
-  '__federation_shared_*.js',
-];
-
 /**
  * ディレクトリ内のファイルを再帰的にスキャン
  * @param dirPath スキャンするディレクトリのパス
@@ -132,34 +127,31 @@ export async function scanDirectory(
   ignorePatterns: string[] = []
 ): Promise<string[]> {
   const allPatterns = [...DEFAULT_IGNORE_PATTERNS, ...ignorePatterns];
-  const files: string[] = [];
+  const relativePaths: string[] = [];
 
   async function scan(currentPath: string) {
     const entries = await fs.readdir(currentPath, { withFileTypes: true });
 
     for (const entry of entries) {
       const fullPath = path.join(currentPath, entry.name);
-      const relativePath = path.relative(dirPath, fullPath);
-
-      // ignoreパターンに一致するかチェック
-      const shouldIgnore = allPatterns.some((pattern) =>
-        minimatch(relativePath, pattern, { dot: true })
-      );
-
-      if (shouldIgnore) {
-        continue;
-      }
 
       if (entry.isDirectory()) {
         await scan(fullPath);
       } else if (entry.isFile()) {
-        files.push(fullPath);
+        relativePaths.push(path.relative(dirPath, fullPath));
       }
     }
   }
 
   await scan(dirPath);
-  return files;
+
+  // 除外判定は SDK の filterFiles に委譲する。
+  // ここで独自に判定すると、実際にアップロードされる集合
+  // （SDK の uploadWorldFromDirectory が同じ関数で決める）とズレて、
+  // セキュリティチェックを通らないままアップロードされるファイルが生まれる。
+  return filterFiles(relativePaths, allPatterns).map((relativePath: string) =>
+    path.join(dirPath, relativePath)
+  );
 }
 
 /**
