@@ -29,7 +29,7 @@ async function fetchLatestVersion(): Promise<string | null> {
     }
     const data = await response.json() as { version?: string };
     return data.version || null;
-  } catch (error) {
+  } catch {
     // ネットワークエラーなどは無視
     return null;
   }

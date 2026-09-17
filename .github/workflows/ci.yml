@@ -25,11 +25,8 @@ jobs:
 
       - run: npm run build
 
-  # lint は既存エラーが多く残っているため、まずは結果を見るだけにして
-  # PR をブロックしない。解消したら continue-on-error を外す
   lint:
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4

@@ -24,7 +24,7 @@ describe('project-config', () => {
     // テスト用ディレクトリを削除
     try {
       await fs.rm(testDir, { recursive: true, force: true });
-    } catch (error) {
+    } catch {
       // 削除失敗は無視
     }
   });
