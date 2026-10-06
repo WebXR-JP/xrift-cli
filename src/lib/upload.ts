@@ -20,8 +20,17 @@ import { runSecurityCheck, printResults } from './check.js';
 
 /**
  * ワールドをアップロード
+ *
+ * @param skipCheck セキュリティチェックを飛ばす
+ * @param skipItemScan ビルド成果物の `<Item itemId>` と xrift.json の world.items の突き合わせを飛ばす。
+ *   宣言し忘れは SDK が本番で箱になる前に止めてくれるが、<Item> で使っていない id が拾われた
+ *   誤検知のときだけこれで逃がす
  */
-export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boolean): Promise<void> {
+export async function uploadWorld(
+  cwd: string = process.cwd(),
+  skipCheck?: boolean,
+  skipItemScan?: boolean
+): Promise<void> {
   console.log(chalk.blue('🌍 Starting world upload\n'));
 
   let spinner: Ora | undefined;
@@ -167,6 +176,7 @@ export async function uploadWorld(cwd: string = process.cwd(), skipCheck?: boole
       token,
       baseUrl: API_BASE_URL,
       worldId,
+      skipItemScan,
       onProgress: (progress) => {
         if (!progressStarted) {
           progressBar.start(progress.total, 0, { filename: '' });
